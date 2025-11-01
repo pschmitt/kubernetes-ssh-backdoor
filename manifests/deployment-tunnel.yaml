@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tunnel
+  namespace: ssh-tunnel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tunnel
+  template:
+    metadata:
+      labels:
+        app: tunnel
+    spec:
+      serviceAccountName: breakglass-admin
+      containers:
+      - name: tunnel
+        image: pschmitt/ssh:latest
+        command:
+        - /bin/sh
+        args:
+        - -c
+        - |
+          set -eu
+          mkdir -p /config/.ssh
+          cp /keys/id_ed25519 /config/.ssh/id_ed25519
+          chmod 600 /config/.ssh/id_ed25519
+          cp /known_hosts/known_hosts /config/.ssh/known_hosts
+          chmod 644 /config/.ssh/known_hosts
+
+          exec autossh \
+            -M 0 \
+            -N \
+            -o ServerAliveInterval=10 \
+            -o ServerAliveCountMax=3 \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile=/config/.ssh/known_hosts \
+            -i /config/.ssh/id_ed25519 \
+            -R 127.0.0.1:${REMOTE_PORT}:kubernetes.default.svc:443 \
+            ${BASTION_USER}@${BASTION_HOST}
+        envFrom:
+        - configMapRef:
+            name: tunnel-config
+        volumeMounts:
+        - name: ssh-key
+          mountPath: /keys
+          readOnly: true
+        - name: ssh-known-hosts
+          mountPath: /known_hosts
+          readOnly: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 64Mi
+
+      - name: publish
+        image: alpine/kubectl:latest
+        command:
+        - /bin/sh
+        args:
+        - -c
+        - |
+          set -eu
+
+          mkdir -p /root/.ssh
+          cp /keys/id_ed25519 /root/.ssh/id_ed25519
+          chmod 600 /root/.ssh/id_ed25519
+          cp /known_hosts/known_hosts /root/.ssh/known_hosts
+          chmod 644 /root/.ssh/known_hosts
+
+          token="$(kubectl -n ssh-tunnel create token breakglass-admin)"
+          ca_b64="$(base64 -w0 /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)"
+
+          tmp=/tmp/kubeconfig.yaml
+          cat > "$tmp" <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - name: ${CLUSTER_NAME}
+            cluster:
+              certificate-authority-data: ${ca_b64}
+              server: https://127.0.0.1:${REMOTE_PORT}
+              tls-server-name: kubernetes.default.svc
+          users:
+          - name: breakglass-admin
+            user:
+              token: ${token}
+          contexts:
+          - name: ${CLUSTER_NAME}-tunnel
+            context:
+              cluster: ${CLUSTER_NAME}
+              user: breakglass-admin
+          current-context: ${CLUSTER_NAME}-tunnel
+          EOF
+
+          ssh -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile=/root/.ssh/known_hosts \
+              -i /root/.ssh/id_ed25519 \
+              "${BASTION_USER}@${BASTION_HOST}" \
+              "mkdir -p ${BASTION_KUBECONFIG_DIR}"
+
+          scp -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile=/root/.ssh/known_hosts \
+              -i /root/.ssh/id_ed25519 \
+              "$tmp" "${BASTION_USER}@${BASTION_HOST}:${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp"
+
+          ssh -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile=/root/.ssh/known_hosts \
+              -i /root/.ssh/id_ed25519 \
+              "${BASTION_USER}@${BASTION_HOST}" \
+              "mv ${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp ${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME}"
+
+          echo "kubeconfig pushed"
+        envFrom:
+        - configMapRef:
+            name: tunnel-config
+        volumeMounts:
+        - name: ssh-key
+          mountPath: /keys
+          readOnly: true
+        - name: ssh-known-hosts
+          mountPath: /known_hosts
+          readOnly: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 64Mi
+
+      volumes:
+      - name: ssh-key
+        secret:
+          secretName: ssh-key
+          defaultMode: 0400
+      - name: ssh-known-hosts
+        configMap:
+          name: ssh-known-hosts
+          defaultMode: 0444
