@@ -6,7 +6,7 @@ set -euo pipefail
 NAMESPACE="ssh-tunnel"
 BASTION_HOST=""
 BASTION_PORT="22"
-BASTION_USER="tunnel"
+BASTION_USER="k8s-backdoor"
 BASTION_KUBECONFIG_DIR="kubeconfigs"
 BASTION_KUBECONFIG_NAME=""
 CLUSTER_NAME=""
@@ -29,7 +29,7 @@ OPTIONS:
   -i, --identity SSH_KEY_PATH      Path to SSH private key (required)
   -k, --host-key HOST_PUBLIC_KEY   SSH host public key (default: auto-fetch with ssh-keyscan)
   -n, --namespace NAMESPACE        Kubernetes namespace (default: ssh-tunnel)
-  -u, --user BASTION_USER          SSH user on bastion (default: tunnel)
+  -u, --user BASTION_USER          SSH user on bastion (default: k8s-backdoor)
   -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
   -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
   -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
@@ -184,7 +184,7 @@ then
     local input="${1,,}"  # Convert to lowercase
     local output=""
     local char
-    
+
     for ((i=0; i<${#input}; i++))
     do
       char="${input:$i:1}"
@@ -200,27 +200,27 @@ then
         *) ;; # Ignore non-alphabetic characters
       esac
     done
-    
+
     echo "$output"
   }
-  
+
   # Convert cluster name to T9 number
   t9_val=$(t9_convert "$CLUSTER_NAME")
-  
+
   # Ensure it's within valid port range (1024-65535)
   while [[ ${#t9_val} -gt 5 ]] || [[ $t9_val -gt 65535 ]]
   do
     # Remove last digit if too large
     t9_val="${t9_val%?}"
   done
-  
+
   # Ensure it's at least 1024
   if [[ $t9_val -lt 1024 ]]
   then
     # Prepend "1" to make it >= 1024
     t9_val="1${t9_val}"
   fi
-  
+
   # Final check
   if [[ $t9_val -ge 1024 ]] && [[ $t9_val -le 65535 ]]
   then

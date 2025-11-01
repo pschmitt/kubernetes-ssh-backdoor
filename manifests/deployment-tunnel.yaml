@@ -87,19 +87,7 @@ spec:
           current-context: ${CLUSTER_NAME}-tunnel
           EOF
 
-          # Create kubectl wrapper script
-          wrapper="/tmp/kubectl-${CLUSTER_NAME}"
-          cat > "$wrapper" <<'WRAPPER_EOF'
-          #!/usr/bin/env bash
-          cd "$(cd "$(dirname "$0")" >/dev/null 2>&1; pwd -P)/../" || exit 9
-          exec kubectl --kubeconfig="KUBECONFIG_PATH" "$@"
-          WRAPPER_EOF
-
-          # Replace placeholder with actual path
-          sed -i "s|KUBECONFIG_PATH|${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME}|g" "$wrapper"
-          chmod +x "$wrapper"
-
-          # Create directories on bastion
+          # Create directories on bastion and resolve the full path
           ssh -o ControlMaster=no \
               -o ControlPath=none \
               -o StrictHostKeyChecking=yes \
@@ -108,6 +96,28 @@ spec:
               -p "${BASTION_PORT}" \
               "${BASTION_USER}@${BASTION_HOST}" \
               "mkdir -p ${BASTION_KUBECONFIG_DIR} ~/bin"
+
+          # Resolve the full path on the remote host
+          RESOLVED_KUBECONFIG_DIR=$(ssh -o ControlMaster=no \
+              -o ControlPath=none \
+              -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile=/root/.ssh/known_hosts \
+              -i /root/.ssh/id_ed25519 \
+              -p "${BASTION_PORT}" \
+              "${BASTION_USER}@${BASTION_HOST}" \
+              "readlink -f ${BASTION_KUBECONFIG_DIR}")
+
+          RESOLVED_KUBECONFIG_PATH="${RESOLVED_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME}"
+          echo "Resolved kubeconfig path on bastion: ${RESOLVED_KUBECONFIG_PATH}"
+
+          # Create kubectl wrapper script with resolved path
+          wrapper="/tmp/kubectl-${CLUSTER_NAME}"
+          cat > "$wrapper" <<WRAPPER_EOF
+          #!/usr/bin/env bash
+          exec kubectl --kubeconfig="${RESOLVED_KUBECONFIG_PATH}" "\$@"
+          WRAPPER_EOF
+
+          chmod +x "$wrapper"
 
           # Upload kubeconfig
           scp -o ControlMaster=no \
