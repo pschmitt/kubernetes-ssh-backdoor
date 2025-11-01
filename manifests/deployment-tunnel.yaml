@@ -24,7 +24,10 @@ spec:
         - |
           set -eu
           install -D -m 600 /keys/id_ed25519 /config/.ssh/id_ed25519
-          install -D -m 644 /known_hosts/known_hosts /config/.ssh/known_hosts
+          
+          # Write known_hosts from ConfigMap env var
+          echo "$known_hosts" > /config/.ssh/known_hosts
+          chmod 644 /config/.ssh/known_hosts
 
           exec autossh \
             -M 0 \
@@ -34,6 +37,7 @@ spec:
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile=/config/.ssh/known_hosts \
             -i /config/.ssh/id_ed25519 \
+            -p "${BASTION_PORT}" \
             -R "127.0.0.1:${REMOTE_PORT}:kubernetes.default.svc:443" \
             "${BASTION_USER}@${BASTION_HOST}"
         envFrom:
@@ -42,9 +46,6 @@ spec:
         volumeMounts:
         - name: ssh-key
           mountPath: /keys
-          readOnly: true
-        - name: ssh-known-hosts
-          mountPath: /known_hosts
           readOnly: true
         resources:
           requests:
@@ -63,7 +64,10 @@ spec:
           set -eu
 
           install -D -m 600 /keys/id_ed25519 /root/.ssh/id_ed25519
-          install -D -m 644 /known_hosts/known_hosts /root/.ssh/known_hosts
+          
+          # Write known_hosts from ConfigMap env var
+          echo "$known_hosts" > /root/.ssh/known_hosts
+          chmod 644 /root/.ssh/known_hosts
 
           token="$(kubectl -n ssh-tunnel create token breakglass-admin)"
           ca_b64="$(base64 -w0 /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)"
@@ -93,17 +97,20 @@ spec:
           ssh -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
+              -p "${BASTION_PORT}" \
               "${BASTION_USER}@${BASTION_HOST}" \
               "mkdir -p ${BASTION_KUBECONFIG_DIR}"
 
           scp -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
+              -P "${BASTION_PORT}" \
               "$tmp" "${BASTION_USER}@${BASTION_HOST}:${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp"
 
           ssh -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
+              -p "${BASTION_PORT}" \
               "${BASTION_USER}@${BASTION_HOST}" \
               "mv ${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp ${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME}"
 
@@ -114,9 +121,6 @@ spec:
         volumeMounts:
         - name: ssh-key
           mountPath: /keys
-          readOnly: true
-        - name: ssh-known-hosts
-          mountPath: /known_hosts
           readOnly: true
         resources:
           requests:
@@ -130,7 +134,3 @@ spec:
         secret:
           secretName: ssh-key
           defaultMode: 0400
-      - name: ssh-known-hosts
-        configMap:
-          name: ssh-known-hosts
-          defaultMode: 0444

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Example usage of build.sh
+# This file is for reference only - customize it for your environment
+
+# Set your variables
+BASTION_HOST="bastion.example.com"
+SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
+NAMESPACE="ssh-tunnel"
+CLUSTER_NAME="production"
+REMOTE_PORT="6443"
+BASTION_USER="tunnel"
+
+# Build and apply (host key will be auto-fetched)
+./build.sh \
+  --host "$BASTION_HOST" \
+  --identity "$SSH_KEY_PATH" \
+  --namespace "$NAMESPACE" \
+  --cluster-name "$CLUSTER_NAME" \
+  --port "$REMOTE_PORT" \
+  --user "$BASTION_USER" \
+  --apply
+
+# Or just generate to review first
+# ./build.sh \
+#   --host "$BASTION_HOST" \
+#   --identity "$SSH_KEY_PATH" \
+#   --namespace "$NAMESPACE" \
+#   --cluster-name "$CLUSTER_NAME" \
+#   --port "$REMOTE_PORT" \
+#   --user "$BASTION_USER" \
+#   --output ./output
+
+# For security, you can manually provide the host key:
+# HOST_KEY=$(ssh-keyscan -t ed25519 "$BASTION_HOST" 2>/dev/null)
+# if [ -z "$HOST_KEY" ]
+# then
+#   echo "Error: Could not fetch host key from $BASTION_HOST"
+#   exit 1
+# fi
+# ./build.sh \
+#   --host "$BASTION_HOST" \
+#   --identity "$SSH_KEY_PATH" \
+#   --host-key "$HOST_KEY" \
+#   --namespace "$NAMESPACE" \
+#   --cluster-name "$CLUSTER_NAME" \
+#   --port "$REMOTE_PORT" \
+#   --user "$BASTION_USER" \
+#   --apply

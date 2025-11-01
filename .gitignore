@@ -1,0 +1,13 @@
+# Build outputs
+output/
+*.yaml.bak
+
+# SSH keys (never commit!)
+*.pem
+id_*
+*.key
+*.pub
+
+# Temporary files
+*.tmp
+.DS_Store

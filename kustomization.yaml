@@ -1,0 +1,34 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ssh-tunnel
+
+resources:
+  - manifests/namespace-ssh-tunnel.yaml
+  - manifests/serviceaccount-breakglass-admin.yaml
+  - manifests/clusterrolebinding-breakglass-admin.yaml
+  - manifests/deployment-tunnel.yaml
+
+configMapGenerator:
+  - name: tunnel-config
+    behavior: create
+    literals:
+      - BASTION_HOST=PLACEHOLDER_BASTION_HOST
+      - BASTION_PORT=PLACEHOLDER_BASTION_PORT
+      - BASTION_USER=PLACEHOLDER_BASTION_USER
+      - BASTION_KUBECONFIG_DIR=PLACEHOLDER_BASTION_KUBECONFIG_DIR
+      - BASTION_KUBECONFIG_NAME=PLACEHOLDER_BASTION_KUBECONFIG_NAME
+      - CLUSTER_NAME=PLACEHOLDER_CLUSTER_NAME
+      - REMOTE_PORT=PLACEHOLDER_REMOTE_PORT
+      - known_hosts=PLACEHOLDER_HOST_PUBLIC_KEY
+
+secretGenerator:
+  - name: ssh-key
+    behavior: create
+    files:
+      - id_ed25519=PLACEHOLDER_SSH_KEY_PATH
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+
