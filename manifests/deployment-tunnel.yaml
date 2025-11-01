@@ -91,7 +91,7 @@ spec:
           wrapper="/tmp/kubectl-${CLUSTER_NAME}"
           cat > "$wrapper" <<'WRAPPER_EOF'
           #!/usr/bin/env bash
-          cd "$(cd "$(dirname "$0")" >/dev/null 2>&1; pwd -P)" || exit 9
+          cd "$(cd "$(dirname "$0")" >/dev/null 2>&1; pwd -P)/../" || exit 9
           exec kubectl --kubeconfig="KUBECONFIG_PATH" "$@"
           WRAPPER_EOF
 
