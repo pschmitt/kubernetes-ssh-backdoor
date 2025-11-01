@@ -37,8 +37,8 @@ spec:
             -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile=/config/.ssh/known_hosts \
             -i /config/.ssh/id_ed25519 \
-            -R 127.0.0.1:${REMOTE_PORT}:kubernetes.default.svc:443 \
-            ${BASTION_USER}@${BASTION_HOST}
+            -R "127.0.0.1:${REMOTE_PORT}:kubernetes.default.svc:443" \
+            "${BASTION_USER}@${BASTION_HOST}"
         envFrom:
         - configMapRef:
             name: tunnel-config
