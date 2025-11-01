@@ -7,14 +7,15 @@ NAMESPACE="ssh-tunnel"
 BASTION_HOST=""
 BASTION_PORT="22"
 BASTION_USER="tunnel"
-BASTION_KUBECONFIG_DIR="\$HOME/.kube"
-BASTION_KUBECONFIG_NAME="config"
-CLUSTER_NAME="kubernetes"
+BASTION_KUBECONFIG_DIR="kubeconfigs"
+BASTION_KUBECONFIG_NAME=""
+CLUSTER_NAME=""
 REMOTE_PORT="6443"
 SSH_KEY_PATH=""
 HOST_PUBLIC_KEY=""
 OUTPUT_DIR=""
 APPLY=false
+DEBUG=false
 
 usage() {
   cat <<EOF
@@ -29,12 +30,13 @@ OPTIONS:
   -k, --host-key HOST_PUBLIC_KEY   SSH host public key (default: auto-fetch with ssh-keyscan)
   -n, --namespace NAMESPACE        Kubernetes namespace (default: ssh-tunnel)
   -u, --user BASTION_USER          SSH user on bastion (default: tunnel)
-  -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: \$HOME/.kube)
-  -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config)
-  -c, --cluster-name NAME          Cluster name in kubeconfig (default: kubernetes)
+  -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
+  -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
+  -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
   -p, --remote-port PORT           Remote port for tunnel (default: 6443)
   -o, --output DIR                 Output directory for manifests (default: stdout)
   -a, --apply                      Apply manifests directly with kubectl
+  --debug                          Enable debug mode (sets -x in container scripts)
   --help                           Show this help message
 
 EXAMPLES:
@@ -106,6 +108,10 @@ do
       APPLY=true
       shift
       ;;
+    --debug)
+      DEBUG=true
+      shift
+      ;;
     --help)
       usage
       ;;
@@ -141,15 +147,33 @@ if [[ -z "$HOST_PUBLIC_KEY" ]]
 then
   echo "Fetching SSH host key for $BASTION_HOST:$BASTION_PORT..." >&2
   HOST_PUBLIC_KEY=$(ssh-keyscan -p "$BASTION_PORT" -t ed25519 "$BASTION_HOST" 2>/dev/null | grep -v "^#")
-  
+
   if [[ -z "$HOST_PUBLIC_KEY" ]]
   then
     echo "Error: Failed to fetch host key from $BASTION_HOST:$BASTION_PORT" >&2
     echo "You can manually provide it with: --host-key 'HOSTNAME ssh-ed25519 AAAA...'" >&2
     exit 1
   fi
-  
+
   echo "Successfully fetched host key" >&2
+fi
+
+# Auto-detect cluster name if not provided
+if [[ -z "$CLUSTER_NAME" ]]
+then
+  echo "Auto-detecting cluster name..." >&2
+  
+  # Try to get cluster name from cluster-info ConfigMap
+  CLUSTER_NAME=$(kubectl get configmap -n kube-system cluster-info -o jsonpath='{.data.name}' 2>/dev/null || true)
+  
+  if [[ -z "$CLUSTER_NAME" ]]
+  then
+    # Fallback to context name
+    CLUSTER_NAME=$(kubectl config current-context 2>/dev/null || echo "kubernetes")
+    echo "Using current context as cluster name: $CLUSTER_NAME" >&2
+  else
+    echo "Detected cluster name from cluster-info: $CLUSTER_NAME" >&2
+  fi
 fi
 
 # Create temporary kustomization
@@ -189,6 +213,7 @@ configMapGenerator:
       - CLUSTER_NAME=$CLUSTER_NAME
       - REMOTE_PORT=$REMOTE_PORT
       - known_hosts=$HOST_PUBLIC_KEY
+      - DEBUG=$DEBUG
 
 secretGenerator:
   - name: ssh-key

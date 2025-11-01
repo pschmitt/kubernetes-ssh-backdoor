@@ -46,12 +46,13 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 -k, --host-key HOST_PUBLIC_KEY   SSH host public key (default: auto-fetch with ssh-keyscan)
 -n, --namespace NAMESPACE        Kubernetes namespace (default: ssh-tunnel)
 -u, --user BASTION_USER          SSH user on bastion (default: tunnel)
--d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: $HOME/.kube)
--f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config)
--c, --cluster-name NAME          Cluster name in kubeconfig (default: kubernetes)
+-d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
+-f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
+-c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
 -p, --remote-port PORT           Remote port for tunnel (default: 6443)
 -o, --output DIR                 Output directory for manifests (default: stdout)
 -a, --apply                      Apply manifests directly with kubectl
+--debug                          Enable debug mode (sets -x in container scripts)
 ```
 
 ## Examples
@@ -86,6 +87,39 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
   --identity ~/.ssh/id_ed25519 \
   --apply
 ```
+
+### Debug mode for troubleshooting
+```bash
+./build.sh \
+  --host bastion.example.com \
+  --identity ~/.ssh/id_ed25519 \
+  --debug \
+  --apply
+```
+
+## Cluster Name Detection
+
+The cluster name is used to identify the cluster in the generated kubeconfig. The build script will:
+
+1. Use the value from `--cluster-name` if provided
+2. Otherwise, try to fetch it from the `cluster-info` ConfigMap in the `kube-system` namespace
+3. If not available, fall back to the current kubectl context name
+4. At runtime in the publish container, it will try the same detection logic
+
+This ensures unique and meaningful cluster names in your kubeconfig files.
+
+## Kubeconfig File Naming
+
+By default, kubeconfig files are pushed to `~/.kube/config.d/config-<cluster-name>` on the bastion host.
+
+For example, if your cluster name is `wiit-edge-002`, the file will be:
+```
+~/.kube/config.d/config-wiit-edge-002
+```
+
+You can customize this with:
+- `--kubeconfig-dir` to change the directory (e.g., `.kube/clusters`)
+- `--kubeconfig-name` to set a specific filename (e.g., `production`)
 
 ## Architecture
 

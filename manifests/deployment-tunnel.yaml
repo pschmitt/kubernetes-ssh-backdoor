@@ -23,8 +23,16 @@ spec:
         - -c
         - |
           set -eu
-          install -D -m 600 /keys/id_ed25519 /config/.ssh/id_ed25519
-          
+          if [ "${DEBUG:-false}" = "true" ]
+          then
+            set -x
+          fi
+
+          # Setup SSH directory and keys
+          mkdir -p /config/.ssh
+          cp /keys/id_ed25519 /config/.ssh/id_ed25519
+          chmod 600 /config/.ssh/id_ed25519
+
           # Write known_hosts from ConfigMap env var
           echo "$known_hosts" > /config/.ssh/known_hosts
           chmod 644 /config/.ssh/known_hosts
@@ -55,21 +63,50 @@ spec:
             memory: 64Mi
 
       - name: publish
-        image: alpine/kubectl:latest
+        image: pschmitt/debug:latest
         command:
         - /bin/sh
         args:
         - -c
         - |
           set -eu
+          if [ "${DEBUG:-false}" = "true" ]
+          then
+            set -x
+          fi
 
-          install -D -m 600 /keys/id_ed25519 /root/.ssh/id_ed25519
-          
+          # Setup SSH
+          mkdir -p /root/.ssh
+          cp /keys/id_ed25519 /root/.ssh/id_ed25519
+          chmod 600 /root/.ssh/id_ed25519
+
           # Write known_hosts from ConfigMap env var
           echo "$known_hosts" > /root/.ssh/known_hosts
           chmod 644 /root/.ssh/known_hosts
 
-          token="$(kubectl -n ssh-tunnel create token breakglass-admin)"
+          # Auto-detect cluster name if not provided
+          if [ -z "${CLUSTER_NAME}" ] || [ "${CLUSTER_NAME}" = "" ]
+          then
+            # Try cluster-info ConfigMap first
+            CLUSTER_NAME=$(kubectl get configmap -n kube-system cluster-info -o jsonpath='{.data.name}' 2>/dev/null || true)
+
+            if [ -z "${CLUSTER_NAME}" ]
+            then
+              # Fallback to generating from namespace and timestamp
+              CLUSTER_NAME="${NAMESPACE}-$(date +%s)"
+              echo "Generated cluster name: ${CLUSTER_NAME}"
+            else
+              echo "Detected cluster name: ${CLUSTER_NAME}"
+            fi
+          fi
+
+          # Set kubeconfig name based on cluster name if not already set
+          if [ -z "${BASTION_KUBECONFIG_NAME}" ] || [ "${BASTION_KUBECONFIG_NAME}" = "" ]
+          then
+            BASTION_KUBECONFIG_NAME="config-${CLUSTER_NAME}"
+          fi
+
+          token="$(kubectl -n ${NAMESPACE} create token breakglass-admin)"
           ca_b64="$(base64 -w0 /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)"
 
           tmp=/tmp/kubeconfig.yaml
@@ -115,6 +152,11 @@ spec:
               "mv ${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp ${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME}"
 
           echo "kubeconfig pushed"
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         envFrom:
         - configMapRef:
             name: tunnel-config
@@ -133,4 +175,4 @@ spec:
       - name: ssh-key
         secret:
           secretName: ssh-key
-          defaultMode: 0400
+          defaultMode: 0444
