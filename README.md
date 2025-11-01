@@ -49,7 +49,7 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
 -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
 -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
--p, --remote-port PORT           Remote port for tunnel (default: 16443)
+-p, --remote-port PORT           Remote port for tunnel (default: computed from cluster name via T9)
 -o, --output DIR                 Output directory for manifests (default: stdout)
 -a, --apply                      Apply manifests directly with kubectl
 --debug                          Enable debug mode (sets -x in container scripts)
@@ -132,7 +132,22 @@ The tunnel uses a simple `while true` loop with `ssh -N` for reliability. If the
 
 The tunnel exposes the Kubernetes API server on the bastion host at `127.0.0.1:<REMOTE_PORT>`.
 
-**Note on Port Selection**: The default remote port is 16443 (not 6443) because ports below 1024 require privileged access on most systems. You can use any port >= 1024 that doesn't conflict with existing services on your bastion host.
+### Automatic Port Selection
+
+By default, the remote port is computed from the cluster name using T9 (phone keypad) encoding to create a unique, memorable port for each cluster:
+
+- **wiit-edge-002** → 9448 (94483343 truncated to fit valid port range)
+- **production** → 7764 (7763828466 truncated)
+- **staging** → 7824
+
+The algorithm:
+1. Converts cluster name to numbers using T9 encoding (abc=2, def=3, etc.)
+2. Truncates from the right if the number is too large (>65535)
+3. Ensures the port is >= 1024
+
+This creates deterministic, collision-resistant ports that are easy to remember. You can always override with `--remote-port` if needed.
+
+**Note**: Ports below 1024 require privileged access on most systems, so all computed ports are >= 1024.
 
 ### kubectl Wrapper
 

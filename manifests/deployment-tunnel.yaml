@@ -13,6 +13,7 @@ spec:
       labels:
         app: tunnel
     spec:
+      terminationGracePeriodSeconds: 5
       serviceAccountName: breakglass-admin
       initContainers:
       - name: publish
@@ -87,7 +88,8 @@ spec:
           # Create kubectl wrapper script
           wrapper="/tmp/kubectl-${CLUSTER_NAME}"
           cat > "$wrapper" <<'WRAPPER_EOF'
-          #!/bin/sh
+          #!/usr/bin/env bash
+          cd "$(cd "$(dirname "$0")" >/dev/null 2>&1; pwd -P)" || exit 9
           exec kubectl --kubeconfig="KUBECONFIG_PATH" "$@"
           WRAPPER_EOF
 
@@ -202,6 +204,15 @@ spec:
             echo "Waiting 5 seconds before reconnecting..."
             sleep 5
           done
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - |
+                # Kill all SSH processes to terminate cleanly
+                killall ssh || true
         envFrom:
         - configMapRef:
             name: tunnel-config

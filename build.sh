@@ -33,7 +33,7 @@ OPTIONS:
   -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
   -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
   -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
-  -p, --remote-port PORT           Remote port for tunnel (default: 16443)
+  -p, --remote-port PORT           Remote port for tunnel (default: computed from cluster name via T9)
   -o, --output DIR                 Output directory for manifests (default: stdout)
   -a, --apply                      Apply manifests directly with kubectl
   --debug                          Enable debug mode (sets -x in container scripts)
@@ -175,6 +175,62 @@ then
     echo "Detected cluster name from cluster-info: $CLUSTER_NAME" >&2
   fi
 fi
+
+# Compute remote port from cluster name if not explicitly provided
+if [[ "$REMOTE_PORT" == "16443" ]] && [[ -n "$CLUSTER_NAME" ]]
+then
+  # T9 conversion function (like old phone keypads)
+  t9_convert() {
+    local input="${1,,}"  # Convert to lowercase
+    local output=""
+    local char
+    
+    for ((i=0; i<${#input}; i++))
+    do
+      char="${input:$i:1}"
+      case "$char" in
+        [abc]) output+="2" ;;
+        [def]) output+="3" ;;
+        [ghi]) output+="4" ;;
+        [jkl]) output+="5" ;;
+        [mno]) output+="6" ;;
+        [pqrs]) output+="7" ;;
+        [tuv]) output+="8" ;;
+        [wxyz]) output+="9" ;;
+        *) ;; # Ignore non-alphabetic characters
+      esac
+    done
+    
+    echo "$output"
+  }
+  
+  # Convert cluster name to T9 number
+  t9_val=$(t9_convert "$CLUSTER_NAME")
+  
+  # Ensure it's within valid port range (1024-65535)
+  while [[ ${#t9_val} -gt 5 ]] || [[ $t9_val -gt 65535 ]]
+  do
+    # Remove last digit if too large
+    t9_val="${t9_val%?}"
+  done
+  
+  # Ensure it's at least 1024
+  if [[ $t9_val -lt 1024 ]]
+  then
+    # Prepend "1" to make it >= 1024
+    t9_val="1${t9_val}"
+  fi
+  
+  # Final check
+  if [[ $t9_val -ge 1024 ]] && [[ $t9_val -le 65535 ]]
+  then
+    REMOTE_PORT="$t9_val"
+    echo "Computed remote port from cluster name: $REMOTE_PORT" >&2
+  else
+    echo "Could not compute valid port from cluster name, using default: $REMOTE_PORT" >&2
+  fi
+fi
+
 
 # Create temporary kustomization
 TEMP_DIR=$(mktemp -d)
