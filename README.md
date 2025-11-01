@@ -49,7 +49,7 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
 -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
 -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
--p, --remote-port PORT           Remote port for tunnel (default: 6443)
+-p, --remote-port PORT           Remote port for tunnel (default: 16443)
 -o, --output DIR                 Output directory for manifests (default: stdout)
 -a, --apply                      Apply manifests directly with kubectl
 --debug                          Enable debug mode (sets -x in container scripts)
@@ -123,12 +123,36 @@ You can customize this with:
 
 ## Architecture
 
-The deployment consists of two containers:
+The deployment consists of:
 
-1. **tunnel**: Maintains the reverse SSH tunnel using `autossh`
-2. **publish**: Generates and uploads the kubeconfig to the bastion host
+1. **initContainer (publish)**: Runs once at pod startup to generate and upload the kubeconfig and kubectl wrapper to the bastion host
+2. **container (tunnel)**: Maintains the reverse SSH tunnel using a reconnection loop
+
+The tunnel uses a simple `while true` loop with `ssh -N` for reliability. If the connection drops, it automatically reconnects after a 5-second delay.
 
 The tunnel exposes the Kubernetes API server on the bastion host at `127.0.0.1:<REMOTE_PORT>`.
+
+**Note on Port Selection**: The default remote port is 16443 (not 6443) because ports below 1024 require privileged access on most systems. You can use any port >= 1024 that doesn't conflict with existing services on your bastion host.
+
+### kubectl Wrapper
+
+The publish initContainer creates a convenient kubectl wrapper script at `~/bin/kubectl-<cluster-name>` on your bastion host.
+
+**Example usage:**
+```bash
+# If your cluster is named "wiit-edge-002"
+kubectl-wiit-edge-002 get nodes
+kubectl-wiit-edge-002 get pods -A
+
+# The wrapper automatically uses the correct kubeconfig
+# Equivalent to: kubectl --kubeconfig ~/.kube/config.d/config-wiit-edge-002 get nodes
+```
+
+Add `~/bin` to your PATH to use these wrappers conveniently:
+```bash
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
 
 ## Manual Deployment (without build.sh)
 

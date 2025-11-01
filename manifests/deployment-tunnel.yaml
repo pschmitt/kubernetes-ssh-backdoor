@@ -14,54 +14,7 @@ spec:
         app: tunnel
     spec:
       serviceAccountName: breakglass-admin
-      containers:
-      - name: tunnel
-        image: pschmitt/ssh:latest
-        command:
-        - /bin/sh
-        args:
-        - -c
-        - |
-          set -eu
-          if [ "${DEBUG:-false}" = "true" ]
-          then
-            set -x
-          fi
-
-          # Setup SSH directory and keys
-          mkdir -p /config/.ssh
-          cp /keys/id_ed25519 /config/.ssh/id_ed25519
-          chmod 600 /config/.ssh/id_ed25519
-
-          # Write known_hosts from ConfigMap env var
-          echo "$known_hosts" > /config/.ssh/known_hosts
-          chmod 644 /config/.ssh/known_hosts
-
-          exec autossh \
-            -M 0 \
-            -N \
-            -o ServerAliveInterval=10 \
-            -o ServerAliveCountMax=3 \
-            -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile=/config/.ssh/known_hosts \
-            -i /config/.ssh/id_ed25519 \
-            -p "${BASTION_PORT}" \
-            -R "127.0.0.1:${REMOTE_PORT}:kubernetes.default.svc:443" \
-            "${BASTION_USER}@${BASTION_HOST}"
-        envFrom:
-        - configMapRef:
-            name: tunnel-config
-        volumeMounts:
-        - name: ssh-key
-          mountPath: /keys
-          readOnly: true
-        resources:
-          requests:
-            cpu: 10m
-            memory: 32Mi
-          limits:
-            memory: 64Mi
-
+      initContainers:
       - name: publish
         image: pschmitt/debug:latest
         command:
@@ -131,32 +84,124 @@ spec:
           current-context: ${CLUSTER_NAME}-tunnel
           EOF
 
-          ssh -o StrictHostKeyChecking=yes \
+          # Create kubectl wrapper script
+          wrapper="/tmp/kubectl-${CLUSTER_NAME}"
+          cat > "$wrapper" <<'WRAPPER_EOF'
+          #!/bin/sh
+          exec kubectl --kubeconfig="KUBECONFIG_PATH" "$@"
+          WRAPPER_EOF
+
+          # Replace placeholder with actual path
+          sed -i "s|KUBECONFIG_PATH|${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME}|g" "$wrapper"
+          chmod +x "$wrapper"
+
+          # Create directories on bastion
+          ssh -o ControlMaster=no \
+              -o ControlPath=none \
+              -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
               -p "${BASTION_PORT}" \
               "${BASTION_USER}@${BASTION_HOST}" \
-              "mkdir -p ${BASTION_KUBECONFIG_DIR}"
+              "mkdir -p ${BASTION_KUBECONFIG_DIR} ~/bin"
 
-          scp -o StrictHostKeyChecking=yes \
+          # Upload kubeconfig
+          scp -o ControlMaster=no \
+              -o ControlPath=none \
+              -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
               -P "${BASTION_PORT}" \
               "$tmp" "${BASTION_USER}@${BASTION_HOST}:${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp"
 
-          ssh -o StrictHostKeyChecking=yes \
+          # Upload kubectl wrapper
+          scp -o ControlMaster=no \
+              -o ControlPath=none \
+              -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile=/root/.ssh/known_hosts \
+              -i /root/.ssh/id_ed25519 \
+              -P "${BASTION_PORT}" \
+              "$wrapper" "${BASTION_USER}@${BASTION_HOST}:~/bin/kubectl-${CLUSTER_NAME}"
+
+          # Atomically move kubeconfig into place
+          ssh -o ControlMaster=no \
+              -o ControlPath=none \
+              -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
               -p "${BASTION_PORT}" \
               "${BASTION_USER}@${BASTION_HOST}" \
-              "mv ${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp ${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME}"
+              "mv ${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp ${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME} && chmod +x ~/bin/kubectl-${CLUSTER_NAME}"
 
-          echo "kubeconfig pushed"
+          echo "Kubeconfig and kubectl wrapper published successfully"
+          echo "Use: kubectl-${CLUSTER_NAME} get nodes"
         env:
         - name: NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        envFrom:
+        - configMapRef:
+            name: tunnel-config
+        volumeMounts:
+        - name: ssh-key
+          mountPath: /keys
+          readOnly: true
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            memory: 64Mi
+
+      containers:
+      - name: tunnel
+        image: pschmitt/ssh:latest
+        command:
+        - /bin/sh
+        args:
+        - -c
+        - |
+          set -eu
+          if [ "${DEBUG:-false}" = "true" ]
+          then
+            set -x
+          fi
+
+          # Setup SSH directory and keys
+          mkdir -p /config/.ssh
+          cp /keys/id_ed25519 /config/.ssh/id_ed25519
+          chmod 600 /config/.ssh/id_ed25519
+
+          # Write known_hosts from ConfigMap env var
+          echo "$known_hosts" > /config/.ssh/known_hosts
+          chmod 644 /config/.ssh/known_hosts
+
+          # SSH tunnel loop with automatic reconnection
+          while true
+          do
+            echo "Starting SSH tunnel to ${BASTION_HOST}:${BASTION_PORT}..."
+            ssh \
+              -N \
+              -o ControlMaster=no \
+              -o ControlPath=none \
+              -o ServerAliveInterval=10 \
+              -o ServerAliveCountMax=3 \
+              -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile=/config/.ssh/known_hosts \
+              -o ExitOnForwardFailure=yes \
+              -i /config/.ssh/id_ed25519 \
+              -p "${BASTION_PORT}" \
+              -R "127.0.0.1:${REMOTE_PORT}:kubernetes.default.svc:443" \
+              "${BASTION_USER}@${BASTION_HOST}"
+
+            EXIT_CODE=$?
+            echo "SSH tunnel disconnected with exit code ${EXIT_CODE}"
+
+            # Wait before reconnecting
+            echo "Waiting 5 seconds before reconnecting..."
+            sleep 5
+          done
         envFrom:
         - configMapRef:
             name: tunnel-config

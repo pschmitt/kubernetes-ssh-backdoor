@@ -10,7 +10,7 @@ BASTION_USER="tunnel"
 BASTION_KUBECONFIG_DIR="kubeconfigs"
 BASTION_KUBECONFIG_NAME=""
 CLUSTER_NAME=""
-REMOTE_PORT="6443"
+REMOTE_PORT="16443"
 SSH_KEY_PATH=""
 HOST_PUBLIC_KEY=""
 OUTPUT_DIR=""
@@ -33,7 +33,7 @@ OPTIONS:
   -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
   -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
   -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
-  -p, --remote-port PORT           Remote port for tunnel (default: 6443)
+  -p, --remote-port PORT           Remote port for tunnel (default: 16443)
   -o, --output DIR                 Output directory for manifests (default: stdout)
   -a, --apply                      Apply manifests directly with kubectl
   --debug                          Enable debug mode (sets -x in container scripts)
@@ -162,10 +162,10 @@ fi
 if [[ -z "$CLUSTER_NAME" ]]
 then
   echo "Auto-detecting cluster name..." >&2
-  
+
   # Try to get cluster name from cluster-info ConfigMap
   CLUSTER_NAME=$(kubectl get configmap -n kube-system cluster-info -o jsonpath='{.data.name}' 2>/dev/null || true)
-  
+
   if [[ -z "$CLUSTER_NAME" ]]
   then
     # Fallback to context name
