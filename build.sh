@@ -14,8 +14,8 @@ REMOTE_PORT="16443"
 SSH_KEY_PATH=""
 HOST_PUBLIC_KEY=""
 OUTPUT_FILE=""
-APPLY=false
-DEBUG=false
+APPLY=""
+DEBUG=""
 
 usage() {
   cat <<EOF
@@ -105,11 +105,11 @@ do
       shift 2
       ;;
     -a|--apply)
-      APPLY=true
+      APPLY=1
       shift
       ;;
     --debug)
-      DEBUG=true
+      DEBUG=1
       shift
       ;;
     --help)

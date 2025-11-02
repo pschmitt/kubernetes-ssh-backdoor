@@ -26,7 +26,7 @@ spec:
         - -c
         - |
           set -eu
-          if [ "${DEBUG:-false}" = "true" ]
+          if [ -n "${DEBUG:-}" ]
           then
             set -x
           fi
@@ -171,7 +171,7 @@ spec:
         - -c
         - |
           set -eu
-          if [ "${DEBUG:-false}" = "true" ]
+          if [ -n "${DEBUG:-}" ]
           then
             set -x
           fi
