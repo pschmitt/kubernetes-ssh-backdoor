@@ -133,7 +133,7 @@ spec:
           echo "Updating kubeconfig secret..."
           KUBECONFIG_SECRET_TMP=${TMPDIR:-/tmp}/kubeconfig-secret.yaml
           sed "s|https://127.0.0.1:${REMOTE_PORT}|https://${KUBECONFIG_SERVER_HOST}:${REMOTE_PORT}|" "$KUBECONFIG_TMP" > "$KUBECONFIG_SECRET_TMP"
-          
+
           KUBECONFIG_B64=$(base64 -w0 "$KUBECONFIG_SECRET_TMP")
           KUBECTL_WRAPPER_B64=$(base64 -w0 "$KUBECTL_WRAPPER")
 
