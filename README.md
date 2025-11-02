@@ -204,20 +204,22 @@ If you need to access the tunnel from other machines on the bastion's network, y
 
 ### Automatic Port Selection
 
-By default, the remote port is computed from the cluster name using T9 (phone keypad) encoding to create a unique, memorable port for each cluster:
+By default, the remote port is computed from the cluster name using an MD5 hash to create a unique, deterministic port for each cluster:
 
-- **acme-corp-prod-cluster** → 22632 (2263267777632587837 truncated to fit valid port range)
-- **production** → 7764 (7763828466 truncated)
-- **staging** → 7824
+- **my-prod-cluster-000001** → 40517
+- **my-prod-cluster-000002** → 33532
+- **my-prod-cluster-000003** → 39156
+- **production** → 41566
+- **staging** → 57968
 
 The algorithm:
-1. Converts cluster name to numbers using T9 encoding (abc=2, def=3, etc.)
-2. Truncates from the right if the number is too large (>65535)
-3. Ensures the port is >= 1024
+1. Computes MD5 hash of the cluster name
+2. Takes first 8 hex characters and converts to decimal
+3. Maps to port range 10000-65535 using modulo operation
 
-This creates deterministic, collision-resistant ports that are easy to remember. You can always override with `--remote-port` if needed.
+This creates deterministic, collision-resistant ports. Even similar names like `my-prod-cluster-000001` and `my-prod-cluster-000002` will have different ports due to the hash-based approach. You can always override with `--remote-port` if needed.
 
-**Note**: Ports below 1024 require privileged access on most systems, so all computed ports are >= 1024.
+**Note**: Ports are in the range 10000-65535 to avoid conflicts with common services.
 
 ### kubectl Wrapper
 
