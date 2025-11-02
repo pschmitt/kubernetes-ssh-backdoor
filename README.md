@@ -44,15 +44,18 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 -P, --port BASTION_SSH_PORT      SSH port on bastion host (default: 22)
 -i, --identity SSH_KEY_PATH      Path to SSH private key (required)
 -k, --host-key HOST_PUBLIC_KEY   SSH host public key (default: auto-fetch with ssh-keyscan)
--n, --namespace NAMESPACE        Kubernetes namespace (default: ssh-tunnel)
+-n, --namespace NAMESPACE        Kubernetes namespace (default: backdoor)
 -u, --user BASTION_SSH_USER      SSH user on bastion (default: k8s-backdoor)
--d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
+-d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: kubeconfigs)
 -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
 -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
 -p, --remote-port PORT           Remote port for tunnel (default: computed from cluster name via T9)
--o, --output DIR                 Output directory for manifests (default: stdout)
+-o, --output FILE                Output file for manifests (default: stdout)
 -a, --apply                      Apply manifests directly with kubectl
+--context CONTEXT                Kubernetes context to use (default: current-context)
+--delete                         Delete manifests from the current cluster with kubectl
 --debug                          Enable debug mode (sets -x in container scripts)
+--help                           Show this help message
 ```
 
 ## Examples
@@ -77,6 +80,23 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
   --kubeconfig-dir "/home/myuser/kube-configs" \
   --kubeconfig-name "prod-cluster.yaml" \
   --apply
+```
+
+### Using a specific Kubernetes context
+```bash
+./build.sh \
+  --host bastion.example.com \
+  --identity ~/.ssh/id_ed25519 \
+  --context production-cluster \
+  --apply
+```
+
+### Delete from a cluster
+```bash
+./build.sh \
+  --host bastion.example.com \
+  --identity ~/.ssh/id_ed25519 \
+  --delete
 ```
 
 ### Non-standard SSH port
@@ -110,11 +130,11 @@ This ensures unique and meaningful cluster names in your kubeconfig files.
 
 ## Kubeconfig File Naming
 
-By default, kubeconfig files are pushed to `~/.kube/config.d/config-<cluster-name>` on the bastion host.
+By default, kubeconfig files are pushed to `kubeconfigs/config-<cluster-name>` on the bastion host.
 
 For example, if your cluster name is `wiit-edge-002`, the file will be:
 ```
-~/.kube/config.d/config-wiit-edge-002
+kubeconfigs/config-wiit-edge-002
 ```
 
 You can customize this with:
@@ -160,7 +180,7 @@ kubectl-wiit-edge-002 get nodes
 kubectl-wiit-edge-002 get pods -A
 
 # The wrapper automatically uses the correct kubeconfig
-# Equivalent to: kubectl --kubeconfig ~/.kube/config.d/config-wiit-edge-002 get nodes
+# Equivalent to: kubectl --kubeconfig kubeconfigs/config-wiit-edge-002 get nodes
 ```
 
 Add `~/bin` to your PATH to use these wrappers conveniently:
@@ -179,7 +199,7 @@ If you prefer to manage secrets manually:
 ## Cleanup
 
 ```bash
-kubectl delete namespace ssh-tunnel
+kubectl delete namespace backdoor
 # Or if using custom namespace:
 kubectl delete namespace <your-namespace>
 ```

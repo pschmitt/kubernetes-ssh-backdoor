@@ -5,7 +5,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: breakglass-admin
-  namespace: ssh-tunnel
+  namespace: backdoor
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

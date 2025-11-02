@@ -5,7 +5,7 @@
 # Set your variables
 BASTION_SSH_HOST="bastion.example.com"
 SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
-NAMESPACE="ssh-tunnel"
+NAMESPACE="backdoor"
 CLUSTER_NAME="production"
 REMOTE_PORT="6443"
 BASTION_SSH_USER="tunnel"

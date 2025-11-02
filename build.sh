@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # Default values
-NAMESPACE="ssh-tunnel"
+NAMESPACE="backdoor"
 BASTION_SSH_HOST=""
 BASTION_SSH_PORT="22"
 BASTION_SSH_USER="k8s-backdoor"
@@ -17,6 +17,7 @@ OUTPUT_FILE=""
 APPLY=""
 DELETE=""
 DEBUG=""
+KUBE_CONTEXT=""
 
 usage() {
   cat <<EOF
@@ -29,7 +30,7 @@ OPTIONS:
   -P, --port BASTION_SSH_PORT      SSH port on bastion host (default: 22)
   -i, --identity SSH_KEY_PATH      Path to SSH private key (required)
   -k, --host-key HOST_PUBLIC_KEY   SSH host public key (default: auto-fetch with ssh-keyscan)
-  -n, --namespace NAMESPACE        Kubernetes namespace (default: ssh-tunnel)
+  -n, --namespace NAMESPACE        Kubernetes namespace (default: backdoor)
   -u, --user BASTION_SSH_USER      SSH user on bastion (default: k8s-backdoor)
   -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
   -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
@@ -37,6 +38,7 @@ OPTIONS:
   -p, --remote-port PORT           Remote port for tunnel (default: computed from cluster name via T9)
   -o, --output FILE                Output file for manifests (default: stdout)
   -a, --apply                      Apply manifests directly with kubectl
+  --context CONTEXT                Kubernetes context to use (default: current-context)
   --delete                         Delete manifests from the current cluster with kubectl
   --debug                          Enable debug mode (sets -x in container scripts)
   --help                           Show this help message
@@ -113,6 +115,10 @@ do
       APPLY=1
       shift
       ;;
+    --context)
+      KUBE_CONTEXT="$2"
+      shift 2
+      ;;
     --delete)
       DELETE=1
       shift
@@ -167,18 +173,25 @@ then
   echo "Successfully fetched host key" >&2
 fi
 
+# Build kubectl command with optional context
+KUBECTL_CMD="kubectl"
+if [[ -n "$KUBE_CONTEXT" ]]
+then
+  KUBECTL_CMD="kubectl --context=$KUBE_CONTEXT"
+fi
+
 # Auto-detect cluster name if not provided
 if [[ -z "$CLUSTER_NAME" ]]
 then
   echo "Auto-detecting cluster name..." >&2
 
   # Try to get cluster name from cluster-info ConfigMap
-  CLUSTER_NAME=$(kubectl get configmap -n kube-system cluster-info -o jsonpath='{.data.name}' 2>/dev/null || true)
+  CLUSTER_NAME=$($KUBECTL_CMD get configmap -n kube-system cluster-info -o jsonpath='{.data.name}' 2>/dev/null || true)
 
   if [[ -z "$CLUSTER_NAME" ]]
   then
     # Fallback to context name
-    CLUSTER_NAME=$(kubectl config current-context 2>/dev/null || echo "kubernetes")
+    CLUSTER_NAME=$($KUBECTL_CMD config current-context 2>/dev/null || echo "kubernetes")
     echo "Using current context as cluster name: $CLUSTER_NAME" >&2
   else
     echo "Detected cluster name from cluster-info: $CLUSTER_NAME" >&2
@@ -272,10 +285,10 @@ envsubst < "$SCRIPT_DIR/kustomization.yaml" > "$TEMP_DIR/kustomization.yaml"
 # Build with kustomize
 if [[ -n "$APPLY" ]]
 then
-  kubectl apply -k "$TEMP_DIR"
+  $KUBECTL_CMD apply -k "$TEMP_DIR"
 elif [[ -n "$DELETE" ]]
 then
-  kubectl delete -k "$TEMP_DIR"
+  $KUBECTL_CMD delete -k "$TEMP_DIR"
 elif [[ -n "$OUTPUT_FILE" ]]
 then
   mkdir -p "$(dirname "$OUTPUT_FILE")"

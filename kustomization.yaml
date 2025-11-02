@@ -4,7 +4,7 @@ kind: Kustomization
 namespace: ${NAMESPACE}
 
 resources:
-  - manifests/namespace-ssh-tunnel.yaml
+  - manifests/namespace-backdoor.yaml
   - manifests/serviceaccount-breakglass-admin.yaml
   - manifests/clusterrolebinding-breakglass-admin.yaml
   - manifests/deployment-tunnel.yaml
@@ -33,7 +33,7 @@ generatorOptions:
 patches:
   - target:
       kind: Namespace
-      name: ssh-tunnel
+      name: backdoor
     patch: |-
       - op: replace
         path: /metadata/name
