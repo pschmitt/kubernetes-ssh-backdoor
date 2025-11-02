@@ -41,6 +41,7 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 
 ```
 -h, --host BASTION_SSH_HOST      Destination bastion host (required)
+-H, --public-host PUBLIC_HOST    Public hostname for kubeconfig (default: same as --host)
 -P, --port BASTION_SSH_PORT      SSH port on bastion host (default: 22)
 -i, --identity SSH_KEY_PATH      Path to SSH private key (required)
 -k, --host-key HOST_PUBLIC_KEY   SSH host public key (default: auto-fetch with ssh-keyscan)
@@ -50,8 +51,9 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
 -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
 -p, --remote-port PORT           Remote port for tunnel (default: computed from cluster name via T9)
+-a, --addr ADDR                  Remote listen address on bastion (default: 127.0.0.1)
 -o, --output FILE                Output file for manifests (default: stdout)
--a, --apply                      Apply manifests directly with kubectl
+--apply                          Apply manifests directly with kubectl
 --context CONTEXT                Kubernetes context to use (default: current-context)
 --delete                         Delete manifests from the current cluster with kubectl
 --debug                          Enable debug mode (sets -x in container scripts)
@@ -150,7 +152,23 @@ The deployment consists of:
 
 The tunnel uses a simple `while true` loop with `ssh -N` for reliability. If the connection drops, it automatically reconnects after a 5-second delay.
 
-The tunnel exposes the Kubernetes API server on the bastion host at `127.0.0.1:<REMOTE_PORT>`.
+The tunnel exposes the Kubernetes API server on the bastion host at `127.0.0.1:<REMOTE_PORT>` by default.
+
+### Remote Listen Address
+
+By default, the SSH tunnel binds to `127.0.0.1` on the bastion host for security (localhost only). This means the tunnel is only accessible from the bastion host itself.
+
+If you need to access the tunnel from other machines on the bastion's network, you can use `--addr 0.0.0.0` to bind to all interfaces:
+
+```bash
+./build.sh \
+  --host bastion.example.com \
+  --identity ~/.ssh/id_ed25519 \
+  --addr 0.0.0.0 \
+  --apply
+```
+
+**Security Warning**: Using `0.0.0.0` exposes the Kubernetes API to the bastion's network. Only use this in trusted networks.
 
 ### Automatic Port Selection
 

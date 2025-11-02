@@ -2,6 +2,21 @@
 
 set -euo pipefail
 
+# Color codes
+BOLD_YELLOW='\033[1;33m'
+BOLD_GREEN='\033[1;32m'
+BOLD_BLUE='\033[1;34m'
+RESET='\033[0m'
+
+# Helper functions
+echo_info() {
+  echo -e "${BOLD_BLUE}INF${RESET} $1" >&2
+}
+
+echo_success() {
+  echo -e "${BOLD_GREEN}OK${RESET} $1" >&2
+}
+
 # Default values
 NAMESPACE="backdoor"
 BASTION_SSH_HOST=""
@@ -12,6 +27,7 @@ BASTION_KUBECONFIG_DIR="kubeconfigs"
 BASTION_KUBECONFIG_NAME=""
 CLUSTER_NAME=""
 REMOTE_PORT="16443"
+REMOTE_LISTEN_ADDR="127.0.0.1"
 SSH_KEY_PATH=""
 BASTION_SSH_HOST_KEY=""
 OUTPUT_FILE=""
@@ -39,8 +55,9 @@ OPTIONS:
   -f, --kubeconfig-name NAME           Kubeconfig filename on bastion (default: config-<cluster-name>)
   -c, --cluster-name NAME              Cluster name in kubeconfig (default: auto-detect from cluster-info)
   -p, --remote-port PORT               Remote port for tunnel (default: computed from cluster name via T9)
+  -a, --addr ADDR                      Remote listen address on bastion (default: 127.0.0.1)
   -o, --output FILE                    Output file for manifests (default: stdout)
-  -a, --apply                          Apply manifests directly with kubectl
+  --apply                              Apply manifests directly with kubectl
   --context CONTEXT                    Kubernetes context to use (default: current-context)
   --delete                             Delete manifests from the current cluster with kubectl
   --debug                              Enable debug mode (sets -x in container scripts)
@@ -113,6 +130,10 @@ do
       REMOTE_PORT="$2"
       shift 2
       ;;
+    -a|--addr)
+      REMOTE_LISTEN_ADDR="$2"
+      shift 2
+      ;;
     -o|--output)
       if [[ $2 != "-" ]]
       then
@@ -120,7 +141,7 @@ do
       fi
       shift 2
       ;;
-    -a|--apply)
+    --apply)
       APPLY=1
       shift
       ;;
@@ -174,7 +195,7 @@ fi
 # Auto-fetch host key if not provided
 if [[ -z "$BASTION_SSH_HOST_KEY" ]]
 then
-  echo "Fetching SSH host key for $BASTION_SSH_HOST:$BASTION_SSH_PORT..." >&2
+  echo_info "Fetching SSH host key for ${BOLD_YELLOW}${BASTION_SSH_HOST}:${BASTION_SSH_PORT}${RESET}..."
   BASTION_SSH_HOST_KEY=$(ssh-keyscan -p "$BASTION_SSH_PORT" -t ed25519 "$BASTION_SSH_HOST" 2>/dev/null | grep -v "^#")
 
   if [[ -z "$BASTION_SSH_HOST_KEY" ]]
@@ -184,7 +205,7 @@ then
     exit 1
   fi
 
-  echo "Successfully fetched host key" >&2
+  echo_success "Successfully fetched host key"
 fi
 
 # Build kubectl command with optional context
@@ -194,10 +215,13 @@ then
   KUBECTL_CMD="kubectl --context=$KUBE_CONTEXT"
 fi
 
+# Get current context for logging
+CURRENT_CONTEXT=$($KUBECTL_CMD config current-context 2>/dev/null || echo "unknown")
+
 # Auto-detect cluster name if not provided
 if [[ -z "$CLUSTER_NAME" ]]
 then
-  echo "Auto-detecting cluster name..." >&2
+  echo_info "Auto-detecting cluster name..."
 
   # Try to get cluster name from cluster-info ConfigMap
   CLUSTER_NAME=$($KUBECTL_CMD get configmap -n kube-system cluster-info -o jsonpath='{.data.name}' 2>/dev/null || true)
@@ -206,9 +230,9 @@ then
   then
     # Fallback to context name
     CLUSTER_NAME=${KUBE_CONTEXT:-$($KUBECTL_CMD config current-context 2>/dev/null || echo "kubernetes")}
-    echo "Using current context as cluster name: $CLUSTER_NAME" >&2
+    echo_info "Using current context as cluster name: ${BOLD_YELLOW}${CLUSTER_NAME}${RESET}"
   else
-    echo "Detected cluster name from cluster-info: $CLUSTER_NAME" >&2
+    echo_info "Detected cluster name from cluster-info: ${BOLD_YELLOW}${CLUSTER_NAME}${RESET}"
   fi
 fi
 
@@ -261,11 +285,28 @@ then
   if [[ $t9_val -ge 1024 ]] && [[ $t9_val -le 65535 ]]
   then
     REMOTE_PORT="$t9_val"
-    echo "Computed remote port from cluster name: $REMOTE_PORT" >&2
+    echo_info "Computed remote port from cluster name: ${BOLD_YELLOW}${REMOTE_PORT}${RESET}"
   else
-    echo "Could not compute valid port from cluster name, using default: $REMOTE_PORT" >&2
+    echo_info "Could not compute valid port from cluster name, using default: ${BOLD_YELLOW}${REMOTE_PORT}${RESET}"
   fi
 fi
+
+# Log configuration summary
+echo_info "Kubernetes Context     ${BOLD_YELLOW}${CURRENT_CONTEXT}${RESET}"
+echo_info "Cluster Name           ${BOLD_YELLOW}${CLUSTER_NAME}${RESET}"
+echo_info "Namespace              ${BOLD_YELLOW}${NAMESPACE}${RESET}"
+echo_info "Bastion Host           ${BOLD_YELLOW}${BASTION_SSH_HOST}:${BASTION_SSH_PORT}${RESET}"
+echo_info "Bastion User           ${BOLD_YELLOW}${BASTION_SSH_USER}${RESET}"
+echo_info "Remote Port            ${BOLD_YELLOW}${REMOTE_PORT}${RESET}"
+echo_info "Remote Listen Addr     ${BOLD_YELLOW}${REMOTE_LISTEN_ADDR}${RESET}"
+echo_info "Kubeconfig Directory   ${BOLD_YELLOW}${BASTION_KUBECONFIG_DIR}${RESET}"
+if [[ -n "$BASTION_KUBECONFIG_NAME" ]]
+then
+  echo_info "Kubeconfig Name        ${BOLD_YELLOW}${BASTION_KUBECONFIG_NAME}${RESET}"
+else
+  echo_info "Kubeconfig Name        ${BOLD_YELLOW}config-${CLUSTER_NAME}${RESET} (auto-generated)"
+fi
+echo_info "SSH Host Key           ${BOLD_YELLOW}${BASTION_SSH_HOST_KEY}${RESET}"
 
 
 # Create temporary kustomization
@@ -293,6 +334,7 @@ export CLUSTER_NAME
 export DEBUG
 export NAMESPACE
 export REMOTE_PORT
+export REMOTE_LISTEN_ADDR
 
 # Template kustomization.yaml with envsubst
 envsubst < "$SCRIPT_DIR/kustomization.yaml" > "$TEMP_DIR/kustomization.yaml"
@@ -300,20 +342,24 @@ envsubst < "$SCRIPT_DIR/kustomization.yaml" > "$TEMP_DIR/kustomization.yaml"
 # Build with kustomize
 if [[ -n "$APPLY" ]]
 then
+  echo_info "Applying manifests to cluster..."
   $KUBECTL_CMD apply -k "$TEMP_DIR"
+  echo_success "Manifests applied successfully"
   if [[ -n "$RESTART" ]]
   then
-    echo "Restarting backdoor pods in namespace $NAMESPACE..." >&2
-    $KUBECTL_CMD -n "$NAMESPACE" rollout restart deployment # backdoor-ssh-tunnel
+    echo_info "Restarting backdoor pods in namespace ${BOLD_YELLOW}${NAMESPACE}${RESET}..."
+    $KUBECTL_CMD -n "$NAMESPACE" rollout restart deployment
   fi
 elif [[ -n "$DELETE" ]]
 then
+  echo "Deleting manifests from cluster..." >&2
   $KUBECTL_CMD delete -k "$TEMP_DIR"
+  echo_success "Manifests deleted successfully"
 elif [[ -n "$OUTPUT_FILE" ]]
 then
   mkdir -p "$(dirname "$OUTPUT_FILE")"
   kubectl kustomize "$TEMP_DIR" > "$OUTPUT_FILE"
-  echo "Manifests written to $OUTPUT_FILE" >&2
+  echo_success "Manifests written to ${BOLD_YELLOW}${OUTPUT_FILE}${RESET}"
 else
   kubectl kustomize "$TEMP_DIR"
 fi

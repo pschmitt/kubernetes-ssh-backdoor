@@ -210,7 +210,7 @@ spec:
           do
             echo "Starting SSH tunnel to ${BASTION_SSH_HOST}:${BASTION_SSH_PORT}..."
             ssh -N $SSH_TUNNEL_OPTS \
-              -R "0.0.0.0:${REMOTE_PORT}:kubernetes.default.svc:443" \
+              -R "${REMOTE_LISTEN_ADDR}:${REMOTE_PORT}:kubernetes.default.svc:443" \
               "${BASTION_SSH_USER}@${BASTION_SSH_HOST}"
 
             EXIT_CODE=$?
