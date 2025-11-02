@@ -63,7 +63,6 @@ EXAMPLES:
   $0 --host bastion.example.com -i ~/.ssh/id_ed25519 -k "\$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)" --apply
 
 EOF
-  exit 0
 }
 
 # Parse arguments
@@ -140,6 +139,7 @@ do
       ;;
     --help)
       usage
+      exit 0
       ;;
     *)
       echo "Unknown option: $1" >&2
