@@ -112,13 +112,13 @@ spec:
           echo "Resolved kubeconfig path on bastion: ${RESOLVED_KUBECONFIG_PATH}"
 
           # Create kubectl wrapper script with resolved path
-          wrapper="/tmp/kubectl-${CLUSTER_NAME}"
-          cat > "$wrapper" <<WRAPPER_EOF
+          KUBECTL_WRAPPER="${TMPDIR:-/tmp}/kubectl-${CLUSTER_NAME}"
+          cat > "$KUBECTL_WRAPPER" <<WRAPPER_EOF
           #!/usr/bin/env bash
           exec kubectl --kubeconfig="${RESOLVED_KUBECONFIG_PATH}" "\$@"
           WRAPPER_EOF
 
-          chmod +x "$wrapper"
+          chmod +x "$KUBECTL_WRAPPER"
 
           # Upload kubeconfig
           scp -o ControlMaster=no \
@@ -136,7 +136,7 @@ spec:
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
               -P "${BASTION_SSH_PORT}" \
-              "$wrapper" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:~/bin/kubectl-${CLUSTER_NAME}"
+              "$KUBECTL_WRAPPER" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:~/bin/kubectl-${CLUSTER_NAME}"
 
           # Atomically move kubeconfig into place
           ssh -o ControlMaster=no \
