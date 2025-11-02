@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: ssh-tunnel
+namespace: ${NAMESPACE}
 
 resources:
   - manifests/namespace-ssh-tunnel.yaml
@@ -11,22 +11,30 @@ resources:
 
 configMapGenerator:
   - name: tunnel-config
-    behavior: create
     literals:
-      - BASTION_KUBECONFIG_DIR=PLACEHOLDER_BASTION_KUBECONFIG_DIR
-      - BASTION_KUBECONFIG_NAME=PLACEHOLDER_BASTION_KUBECONFIG_NAME
-      - BASTION_SSH_HOST=PLACEHOLDER_BASTION_SSH_HOST
-      - BASTION_SSH_HOST_KEY=PLACEHOLDER_HOST_PUBLIC_KEY
-      - BASTION_SSH_PORT=PLACEHOLDER_BASTION_SSH_PORT
-      - BASTION_SSH_USER=PLACEHOLDER_BASTION_SSH_USER
-      - CLUSTER_NAME=PLACEHOLDER_CLUSTER_NAME
-      - REMOTE_PORT=PLACEHOLDER_REMOTE_PORT
+      - BASTION_KUBECONFIG_DIR=${BASTION_KUBECONFIG_DIR}
+      - BASTION_KUBECONFIG_NAME=${BASTION_KUBECONFIG_NAME}
+      - BASTION_SSH_HOST=${BASTION_SSH_HOST}
+      - BASTION_SSH_HOST_KEY=${HOST_PUBLIC_KEY}
+      - BASTION_SSH_PORT=${BASTION_SSH_PORT}
+      - BASTION_SSH_USER=${BASTION_SSH_USER}
+      - CLUSTER_NAME=${CLUSTER_NAME}
+      - DEBUG=${DEBUG}
+      - REMOTE_PORT=${REMOTE_PORT}
 
 secretGenerator:
   - name: ssh-private-key
-    behavior: create
     files:
-      - id_ed25519=PLACEHOLDER_SSH_KEY_PATH
+      - id_ed25519=id_ed25519
 
 generatorOptions:
   disableNameSuffixHash: true
+
+patches:
+  - target:
+      kind: Namespace
+      name: ssh-tunnel
+    patch: |-
+      - op: replace
+        path: /metadata/name
+        value: ${NAMESPACE}

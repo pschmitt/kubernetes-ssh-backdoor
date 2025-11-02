@@ -245,49 +245,20 @@ cp -r "$SCRIPT_DIR/manifests" "$TEMP_DIR/"
 cp "$SSH_KEY_PATH" "$TEMP_DIR/id_ed25519"
 chmod 600 "$TEMP_DIR/id_ed25519"
 
-# Create kustomization.yaml with values
-cat > "$TEMP_DIR/kustomization.yaml" <<EOF
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
+# Export variables for envsubst
+export NAMESPACE
+export BASTION_KUBECONFIG_DIR
+export BASTION_KUBECONFIG_NAME
+export BASTION_SSH_HOST
+export HOST_PUBLIC_KEY
+export BASTION_SSH_PORT
+export BASTION_SSH_USER
+export CLUSTER_NAME
+export DEBUG
+export REMOTE_PORT
 
-namespace: $NAMESPACE
-
-resources:
-  - manifests/namespace-ssh-tunnel.yaml
-  - manifests/serviceaccount-breakglass-admin.yaml
-  - manifests/clusterrolebinding-breakglass-admin.yaml
-  - manifests/deployment-tunnel.yaml
-
-configMapGenerator:
-  - name: tunnel-config
-    literals:
-      - BASTION_KUBECONFIG_DIR=$BASTION_KUBECONFIG_DIR
-      - BASTION_KUBECONFIG_NAME=$BASTION_KUBECONFIG_NAME
-      - BASTION_SSH_HOST=$BASTION_SSH_HOST
-      - BASTION_SSH_HOST_KEY=$HOST_PUBLIC_KEY
-      - BASTION_SSH_PORT=$BASTION_SSH_PORT
-      - BASTION_SSH_USER=$BASTION_SSH_USER
-      - CLUSTER_NAME=$CLUSTER_NAME
-      - DEBUG=$DEBUG
-      - REMOTE_PORT=$REMOTE_PORT
-
-secretGenerator:
-  - name: ssh-private-key
-    files:
-      - id_ed25519=id_ed25519
-
-generatorOptions:
-  disableNameSuffixHash: true
-
-patches:
-  - target:
-      kind: Namespace
-      name: ssh-tunnel
-    patch: |-
-      - op: replace
-        path: /metadata/name
-        value: $NAMESPACE
-EOF
+# Template kustomization.yaml with envsubst
+envsubst < "$SCRIPT_DIR/kustomization.yaml" > "$TEMP_DIR/kustomization.yaml"
 
 # Build with kustomize
 if [[ -n "$APPLY" ]]
