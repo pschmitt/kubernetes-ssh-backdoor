@@ -8,7 +8,7 @@ resources:
   - manifests/serviceaccount-breakglass-admin.yaml
   - manifests/clusterrolebinding-breakglass-admin.yaml
   - manifests/secret-kubeconfig.yaml
-  - manifests/deployment-tunnel.yaml
+  - manifests/deployment-ssh-remote-fwd.yaml
   - manifests/cronjob-token-renewal.yaml
 
 configMapGenerator:
