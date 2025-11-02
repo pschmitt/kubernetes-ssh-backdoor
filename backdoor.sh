@@ -10,11 +10,15 @@ RESET='\033[0m'
 
 # Helper functions
 echo_info() {
-  echo -e "${BOLD_BLUE}INF${RESET} $1" >&2
+  echo -e "${BOLD_BLUE}INF${RESET} $*" >&2
+}
+
+echo_warning() {
+  echo -e "${BOLD_YELLOW}WRN${RESET} $*" >&2
 }
 
 echo_success() {
-  echo -e "${BOLD_GREEN}OK${RESET} $1" >&2
+  echo -e "${BOLD_GREEN}OK${RESET} $*" >&2
 }
 
 # Convert duration to hours (kubectl only understands hours)
@@ -22,9 +26,10 @@ convert_duration_to_hours() {
   local duration="$1"
   local value
   local unit
-  
+
   # Extract numeric value and unit
-  if [[ $duration =~ ^([0-9]+)([yMwdhms]?)$ ]]; then
+  if [[ $duration =~ ^([0-9]+)([yMwdhms]?)$ ]]
+  then
     value="${BASH_REMATCH[1]}"
     unit="${BASH_REMATCH[2]}"
   else
@@ -32,7 +37,7 @@ convert_duration_to_hours() {
     echo "Valid formats: 30d, 1y, 2w, 3M, 720h, etc." >&2
     exit 1
   fi
-  
+
   # Convert to hours based on unit
   case "$unit" in
     y) echo "$((value * 8760))h" ;;   # years to hours (365 days)
@@ -235,7 +240,8 @@ fi
 
 # Derive public key from private key for logging
 SSH_PUBLIC_KEY=$(ssh-keygen -y -f "$SSH_KEY_PATH" 2>/dev/null)
-if [[ -z "$SSH_PUBLIC_KEY" ]]; then
+if [[ -z "$SSH_PUBLIC_KEY" ]]
+then
   echo "Warning: Could not derive public key from $SSH_KEY_PATH" >&2
   SSH_PUBLIC_KEY="<unable to derive>"
 fi
@@ -299,25 +305,15 @@ then
 fi
 
 # Log configuration summary
-echo_info "Kubernetes Context     ${BOLD_YELLOW}${CURRENT_CONTEXT}${RESET}"
-echo_info "Cluster Name           ${BOLD_YELLOW}${CLUSTER_NAME}${RESET}"
-echo_info "Namespace              ${BOLD_YELLOW}${NAMESPACE}${RESET}"
-echo_info "Bastion Host           ${BOLD_YELLOW}${BASTION_SSH_HOST}:${BASTION_SSH_PORT}${RESET}"
-echo_info "Bastion User           ${BOLD_YELLOW}${BASTION_SSH_USER}${RESET}"
-echo_info "Remote Port            ${BOLD_YELLOW}${REMOTE_PORT}${RESET}"
-echo_info "Remote Listen Addr     ${BOLD_YELLOW}${REMOTE_LISTEN_ADDR}${RESET}"
-echo_info "Token Lifetime         ${BOLD_YELLOW}${TOKEN_LIFETIME}${RESET}"
-echo_info "Token Renewal Interval ${BOLD_YELLOW}${TOKEN_RENEWAL_INTERVAL}${RESET}"
-echo_info "SSH Private Key        ${BOLD_YELLOW}${SSH_KEY_PATH}${RESET}"
-echo_info "SSH Public Key         ${BOLD_YELLOW}${SSH_PUBLIC_KEY}${RESET}"
-echo_info "Kubeconfig Directory   ${BOLD_YELLOW}${BASTION_KUBECONFIG_DIR}${RESET}"
-if [[ -n "$BASTION_KUBECONFIG_NAME" ]]
-then
-  echo_info "Kubeconfig Name        ${BOLD_YELLOW}${BASTION_KUBECONFIG_NAME}${RESET}"
-else
-  echo_info "Kubeconfig Name        ${BOLD_YELLOW}config-${CLUSTER_NAME}${RESET} (auto-generated)"
-fi
-echo_info "SSH Host Key           ${BOLD_YELLOW}${BASTION_SSH_HOST_KEY}${RESET}"
+echo_info "Kubernetes context    ${BOLD_YELLOW}${CURRENT_CONTEXT}${RESET}"
+echo_info "Cluster name          ${BOLD_YELLOW}${CLUSTER_NAME}${RESET}"
+echo_info "Namespace             ${BOLD_YELLOW}${NAMESPACE}${RESET}"
+echo_info "Bastion host          ${BOLD_YELLOW}${BASTION_SSH_USER}${RESET}@${BOLD_YELLOW}${BASTION_SSH_HOST}${RESET}:${BOLD_YELLOW}${BASTION_SSH_PORT}${RESET}"
+echo_info "Remote listen addr    ${BOLD_YELLOW}${REMOTE_LISTEN_ADDR}${RESET}:${BOLD_YELLOW}${REMOTE_PORT}${RESET}"
+echo_info "Token lifetime        ${BOLD_YELLOW}${TOKEN_LIFETIME}${RESET} (renewal interval: ${BOLD_YELLOW}${TOKEN_RENEWAL_INTERVAL}${RESET})"
+echo_info "SSH private key       ${BOLD_YELLOW}${SSH_KEY_PATH}${RESET} [${BOLD_YELLOW}${SSH_PUBLIC_KEY}${RESET}]"
+echo_info "Kubeconfig path       ${BOLD_YELLOW}${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME:-config-${CLUSTER_NAME}}${RESET}"
+echo_info "SSH host key          ${BOLD_YELLOW}${BASTION_SSH_HOST_KEY}${RESET}"
 
 
 # Create temporary kustomization
