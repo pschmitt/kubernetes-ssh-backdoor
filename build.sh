@@ -290,7 +290,7 @@ patches:
 EOF
 
 # Build with kustomize
-if [[ "$APPLY" == "true" ]]
+if [[ -n "$APPLY" ]]
 then
   kubectl apply -k "$TEMP_DIR"
 elif [[ -n "$OUTPUT_FILE" ]]
