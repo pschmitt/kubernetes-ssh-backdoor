@@ -93,7 +93,7 @@ OPTIONS:
   -n, --namespace NAMESPACE            Kubernetes namespace (default: backdoor)
   -u, --user BASTION_SSH_USER          SSH user on bastion (default: k8s-backdoor)
   -d, --kubeconfig-dir DIR             Kubeconfig directory on bastion (default: .kube/config.d)
-  -f, --kubeconfig-name NAME           Kubeconfig filename on bastion (default: config-<cluster-name>)
+  -f, --kubeconfig-name NAME           Kubeconfig filename on bastion (default: <cluster-name>.yaml)
   -c, --cluster-name NAME              Cluster name in kubeconfig (default: auto-detect from cluster-info)
   -R, --remote-port PORT               Remote port for tunnel (default: computed from cluster name hash)
   -a, --addr ADDR                      Remote listen address on bastion (default: 127.0.0.1)
