@@ -268,7 +268,7 @@ configMapGenerator:
       - BASTION_KUBECONFIG_NAME=$BASTION_KUBECONFIG_NAME
       - CLUSTER_NAME=$CLUSTER_NAME
       - REMOTE_PORT=$REMOTE_PORT
-      - known_hosts=$HOST_PUBLIC_KEY
+      - SSH_KNOWN_HOSTS=$HOST_PUBLIC_KEY
       - DEBUG=$DEBUG
 
 secretGenerator:
