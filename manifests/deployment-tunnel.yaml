@@ -182,7 +182,7 @@ spec:
           chmod 600 /config/.ssh/id_ed25519
 
           # Write known_hosts from ConfigMap env var
-          echo "$known_hosts" > /config/.ssh/known_hosts
+          echo "$BASTION_SSH_HOST_KEY" > /root/.ssh/known_hosts
           chmod 644 /config/.ssh/known_hosts
 
           # SSH tunnel loop with automatic reconnection
