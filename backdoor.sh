@@ -309,12 +309,11 @@ echo_info "Kubernetes context    ${BOLD_YELLOW}${CURRENT_CONTEXT}${RESET}"
 echo_info "Cluster name          ${BOLD_YELLOW}${CLUSTER_NAME}${RESET}"
 echo_info "Namespace             ${BOLD_YELLOW}${NAMESPACE}${RESET}"
 echo_info "Bastion host          ${BOLD_YELLOW}${BASTION_SSH_USER}${RESET}@${BOLD_YELLOW}${BASTION_SSH_HOST}${RESET}:${BOLD_YELLOW}${BASTION_SSH_PORT}${RESET}"
-echo_info "Remote listen addr    ${BOLD_YELLOW}${REMOTE_LISTEN_ADDR}${RESET}:${BOLD_YELLOW}${REMOTE_PORT}${RESET}"
-echo_info "Token lifetime        ${BOLD_YELLOW}${TOKEN_LIFETIME}${RESET} (renewal interval: ${BOLD_YELLOW}${TOKEN_RENEWAL_INTERVAL}${RESET})"
-echo_info "SSH private key       ${BOLD_YELLOW}${SSH_KEY_PATH}${RESET} [${BOLD_YELLOW}${SSH_PUBLIC_KEY}${RESET}]"
-echo_info "Kubeconfig path       ${BOLD_YELLOW}${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME:-config-${CLUSTER_NAME}}${RESET}"
 echo_info "SSH host key          ${BOLD_YELLOW}${BASTION_SSH_HOST_KEY}${RESET}"
-
+echo_info "SSH private key       ${BOLD_YELLOW}${SSH_KEY_PATH}${RESET} [${BOLD_YELLOW}${SSH_PUBLIC_KEY}${RESET}]"
+echo_info "Remote listen addr    ${BOLD_YELLOW}${REMOTE_LISTEN_ADDR}${RESET}:${BOLD_YELLOW}${REMOTE_PORT}${RESET}"
+echo_info "Kubeconfig path       ${BOLD_YELLOW}${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME:-${CLUSTER_NAME}.yaml}${RESET}"
+echo_info "Token lifetime        ${BOLD_YELLOW}${TOKEN_LIFETIME}${RESET} (renewal interval: ${BOLD_YELLOW}${TOKEN_RENEWAL_INTERVAL}${RESET})"
 
 # Create temporary kustomization
 TEMP_DIR=$(mktemp -d)

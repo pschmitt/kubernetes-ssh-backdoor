@@ -77,7 +77,7 @@ spec:
           # Set kubeconfig name based on cluster name if not already set
           if [ -z "${BASTION_KUBECONFIG_NAME}" ] || [ "${BASTION_KUBECONFIG_NAME}" = "" ]
           then
-            BASTION_KUBECONFIG_NAME="config-${CLUSTER_NAME}"
+            BASTION_KUBECONFIG_NAME="${CLUSTER_NAME}.yaml"
           fi
 
           # Create service account token with configurable duration
