@@ -15,6 +15,7 @@ SSH_KEY_PATH=""
 HOST_PUBLIC_KEY=""
 OUTPUT_FILE=""
 APPLY=""
+DELETE=""
 DEBUG=""
 
 usage() {
@@ -36,6 +37,7 @@ OPTIONS:
   -p, --remote-port PORT           Remote port for tunnel (default: computed from cluster name via T9)
   -o, --output FILE                Output file for manifests (default: stdout)
   -a, --apply                      Apply manifests directly with kubectl
+  --delete                         Delete manifests from the current cluster with kubectl
   --debug                          Enable debug mode (sets -x in container scripts)
   --help                           Show this help message
 
@@ -48,6 +50,9 @@ EXAMPLES:
 
   # Apply directly
   $0 --host bastion.example.com -i ~/.ssh/id_ed25519 --apply
+
+  # Delete from cluster
+  $0 --host bastion.example.com -i ~/.ssh/id_ed25519 --delete
 
   # Provide host key manually for security
   $0 --host bastion.example.com -i ~/.ssh/id_ed25519 -k "\$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)" --apply
@@ -106,6 +111,10 @@ do
       ;;
     -a|--apply)
       APPLY=1
+      shift
+      ;;
+    --delete)
+      DELETE=1
       shift
       ;;
     --debug)
@@ -264,6 +273,9 @@ envsubst < "$SCRIPT_DIR/kustomization.yaml" > "$TEMP_DIR/kustomization.yaml"
 if [[ -n "$APPLY" ]]
 then
   kubectl apply -k "$TEMP_DIR"
+elif [[ -n "$DELETE" ]]
+then
+  kubectl delete -k "$TEMP_DIR"
 elif [[ -n "$OUTPUT_FILE" ]]
 then
   mkdir -p "$(dirname "$OUTPUT_FILE")"
