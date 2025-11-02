@@ -4,9 +4,9 @@ set -euo pipefail
 
 # Default values
 NAMESPACE="ssh-tunnel"
-BASTION_HOST=""
-BASTION_PORT="22"
-BASTION_USER="k8s-backdoor"
+BASTION_SSH_HOST=""
+BASTION_SSH_PORT="22"
+BASTION_SSH_USER="k8s-backdoor"
 BASTION_KUBECONFIG_DIR="kubeconfigs"
 BASTION_KUBECONFIG_NAME=""
 CLUSTER_NAME=""
@@ -24,12 +24,12 @@ Usage: $0 [OPTIONS]
 Build Kubernetes manifests for SSH tunnel using Kustomize.
 
 OPTIONS:
-  -h, --host BASTION_HOST          Destination bastion host (required)
-  -P, --port BASTION_PORT          SSH port on bastion host (default: 22)
+  -h, --host BASTION_SSH_HOST      Destination bastion host (required)
+  -P, --port BASTION_SSH_PORT      SSH port on bastion host (default: 22)
   -i, --identity SSH_KEY_PATH      Path to SSH private key (required)
   -k, --host-key HOST_PUBLIC_KEY   SSH host public key (default: auto-fetch with ssh-keyscan)
   -n, --namespace NAMESPACE        Kubernetes namespace (default: ssh-tunnel)
-  -u, --user BASTION_USER          SSH user on bastion (default: k8s-backdoor)
+  -u, --user BASTION_SSH_USER      SSH user on bastion (default: k8s-backdoor)
   -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
   -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
   -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
@@ -61,11 +61,11 @@ while [[ $# -gt 0 ]]
 do
   case $1 in
     -h|--host)
-      BASTION_HOST="$2"
+      BASTION_SSH_HOST="$2"
       shift 2
       ;;
     -P|--port)
-      BASTION_PORT="$2"
+      BASTION_SSH_PORT="$2"
       shift 2
       ;;
     -i|--identity)
@@ -81,7 +81,7 @@ do
       shift 2
       ;;
     -u|--user)
-      BASTION_USER="$2"
+      BASTION_SSH_USER="$2"
       shift 2
       ;;
     -d|--kubeconfig-dir)
@@ -124,7 +124,7 @@ do
 done
 
 # Validate required parameters
-if [[ -z "$BASTION_HOST" ]]
+if [[ -z "$BASTION_SSH_HOST" ]]
 then
   echo "Error: --host is required" >&2
   exit 1
@@ -145,12 +145,12 @@ fi
 # Auto-fetch host key if not provided
 if [[ -z "$HOST_PUBLIC_KEY" ]]
 then
-  echo "Fetching SSH host key for $BASTION_HOST:$BASTION_PORT..." >&2
-  HOST_PUBLIC_KEY=$(ssh-keyscan -p "$BASTION_PORT" -t ed25519 "$BASTION_HOST" 2>/dev/null | grep -v "^#")
+  echo "Fetching SSH host key for $BASTION_SSH_HOST:$BASTION_SSH_PORT..." >&2
+  HOST_PUBLIC_KEY=$(ssh-keyscan -p "$BASTION_SSH_PORT" -t ed25519 "$BASTION_SSH_HOST" 2>/dev/null | grep -v "^#")
 
   if [[ -z "$HOST_PUBLIC_KEY" ]]
   then
-    echo "Error: Failed to fetch host key from $BASTION_HOST:$BASTION_PORT" >&2
+    echo "Error: Failed to fetch host key from $BASTION_SSH_HOST:$BASTION_SSH_PORT" >&2
     echo "You can manually provide it with: --host-key 'HOSTNAME ssh-ed25519 AAAA...'" >&2
     exit 1
   fi
@@ -261,15 +261,15 @@ resources:
 configMapGenerator:
   - name: tunnel-config
     literals:
-      - BASTION_HOST=$BASTION_HOST
-      - BASTION_PORT=$BASTION_PORT
-      - BASTION_USER=$BASTION_USER
       - BASTION_KUBECONFIG_DIR=$BASTION_KUBECONFIG_DIR
       - BASTION_KUBECONFIG_NAME=$BASTION_KUBECONFIG_NAME
+      - BASTION_SSH_HOST=$BASTION_SSH_HOST
+      - BASTION_SSH_HOST_KEY=$HOST_PUBLIC_KEY
+      - BASTION_SSH_PORT=$BASTION_SSH_PORT
+      - BASTION_SSH_USER=$BASTION_SSH_USER
       - CLUSTER_NAME=$CLUSTER_NAME
-      - REMOTE_PORT=$REMOTE_PORT
-      - SSH_KNOWN_HOSTS=$HOST_PUBLIC_KEY
       - DEBUG=$DEBUG
+      - REMOTE_PORT=$REMOTE_PORT
 
 secretGenerator:
   - name: ssh-private-key

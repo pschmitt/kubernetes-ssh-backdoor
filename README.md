@@ -40,12 +40,12 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 ## Build Script Options
 
 ```
--h, --host BASTION_HOST          Destination bastion host (required)
--P, --port BASTION_PORT          SSH port on bastion host (default: 22)
+-h, --host BASTION_SSH_HOST      Destination bastion host (required)
+-P, --port BASTION_SSH_PORT      SSH port on bastion host (default: 22)
 -i, --identity SSH_KEY_PATH      Path to SSH private key (required)
 -k, --host-key HOST_PUBLIC_KEY   SSH host public key (default: auto-fetch with ssh-keyscan)
 -n, --namespace NAMESPACE        Kubernetes namespace (default: ssh-tunnel)
--u, --user BASTION_USER          SSH user on bastion (default: k8s-backdoor)
+-u, --user BASTION_SSH_USER      SSH user on bastion (default: k8s-backdoor)
 -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
 -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
 -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)

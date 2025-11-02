@@ -37,7 +37,7 @@ spec:
           chmod 600 /root/.ssh/id_ed25519
 
           # Write known_hosts from ConfigMap env var
-          echo "$SSH_KNOWN_HOSTS" > /root/.ssh/known_hosts
+          echo "$BASTION_SSH_HOST_KEY" > /root/.ssh/known_hosts
           chmod 644 /root/.ssh/known_hosts
 
           # Auto-detect cluster name if not provided
@@ -93,8 +93,8 @@ spec:
               -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
-              -p "${BASTION_PORT}" \
-              "${BASTION_USER}@${BASTION_HOST}" \
+              -p "${BASTION_SSH_PORT}" \
+              "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
               "mkdir -p ${BASTION_KUBECONFIG_DIR} ~/bin"
 
           # Resolve the full path on the remote host
@@ -103,8 +103,8 @@ spec:
               -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
-              -p "${BASTION_PORT}" \
-              "${BASTION_USER}@${BASTION_HOST}" \
+              -p "${BASTION_SSH_PORT}" \
+              "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
               "readlink -f ${BASTION_KUBECONFIG_DIR}")
 
           RESOLVED_KUBECONFIG_PATH="${RESOLVED_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME}"
@@ -125,8 +125,8 @@ spec:
               -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
-              -P "${BASTION_PORT}" \
-              "$tmp" "${BASTION_USER}@${BASTION_HOST}:${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp"
+              -P "${BASTION_SSH_PORT}" \
+              "$tmp" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp"
 
           # Upload kubectl wrapper
           scp -o ControlMaster=no \
@@ -134,8 +134,8 @@ spec:
               -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
-              -P "${BASTION_PORT}" \
-              "$wrapper" "${BASTION_USER}@${BASTION_HOST}:~/bin/kubectl-${CLUSTER_NAME}"
+              -P "${BASTION_SSH_PORT}" \
+              "$wrapper" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:~/bin/kubectl-${CLUSTER_NAME}"
 
           # Atomically move kubeconfig into place
           ssh -o ControlMaster=no \
@@ -143,8 +143,8 @@ spec:
               -o StrictHostKeyChecking=yes \
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
-              -p "${BASTION_PORT}" \
-              "${BASTION_USER}@${BASTION_HOST}" \
+              -p "${BASTION_SSH_PORT}" \
+              "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
               "mv ${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp ${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME} && chmod +x ~/bin/kubectl-${CLUSTER_NAME}"
 
           echo "Kubeconfig and kubectl wrapper published successfully"
@@ -188,7 +188,7 @@ spec:
           # SSH tunnel loop with automatic reconnection
           while true
           do
-            echo "Starting SSH tunnel to ${BASTION_HOST}:${BASTION_PORT}..."
+            echo "Starting SSH tunnel to ${BASTION_SSH_HOST}:${BASTION_SSH_PORT}..."
             ssh \
               -N \
               -o ControlMaster=no \
@@ -199,9 +199,9 @@ spec:
               -o UserKnownHostsFile=/config/.ssh/known_hosts \
               -o ExitOnForwardFailure=yes \
               -i /config/.ssh/id_ed25519 \
-              -p "${BASTION_PORT}" \
+              -p "${BASTION_SSH_PORT}" \
               -R "127.0.0.1:${REMOTE_PORT}:kubernetes.default.svc:443" \
-              "${BASTION_USER}@${BASTION_HOST}"
+              "${BASTION_SSH_USER}@${BASTION_SSH_HOST}"
 
             EXIT_CODE=$?
             echo "SSH tunnel disconnected with exit code ${EXIT_CODE}"
