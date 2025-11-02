@@ -166,9 +166,9 @@ This ensures unique and meaningful cluster names in your kubeconfig files.
 
 By default, kubeconfig files are pushed to `kubeconfigs/config-<cluster-name>` on the bastion host.
 
-For example, if your cluster name is `wiit-edge-002`, the file will be:
+For example, if your cluster name is `acme-corp-prod-cluster`, the file will be:
 ```
-kubeconfigs/config-wiit-edge-002
+kubeconfigs/config-acme-corp-prod-cluster
 ```
 
 You can customize this with:
@@ -206,7 +206,7 @@ If you need to access the tunnel from other machines on the bastion's network, y
 
 By default, the remote port is computed from the cluster name using T9 (phone keypad) encoding to create a unique, memorable port for each cluster:
 
-- **wiit-edge-002** → 9448 (94483343 truncated to fit valid port range)
+- **acme-corp-prod-cluster** → 22632 (2263267777632587837 truncated to fit valid port range)
 - **production** → 7764 (7763828466 truncated)
 - **staging** → 7824
 
@@ -225,12 +225,12 @@ The publish initContainer creates a convenient kubectl wrapper script at `~/bin/
 
 **Example usage:**
 ```bash
-# If your cluster is named "wiit-edge-002"
-kubectl-wiit-edge-002 get nodes
-kubectl-wiit-edge-002 get pods -A
+# If your cluster is named "acme-corp-prod-cluster"
+kubectl-acme-corp-prod-cluster get nodes
+kubectl-acme-corp-prod-cluster get pods -A
 
 # The wrapper automatically uses the correct kubeconfig
-# Equivalent to: kubectl --kubeconfig kubeconfigs/config-wiit-edge-002 get nodes
+# Equivalent to: kubectl --kubeconfig kubeconfigs/config-acme-corp-prod-cluster get nodes
 ```
 
 Add `~/bin` to your PATH to use these wrappers conveniently:
