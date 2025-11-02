@@ -17,6 +17,35 @@ echo_success() {
   echo -e "${BOLD_GREEN}OK${RESET} $1" >&2
 }
 
+# Convert duration to hours (kubectl only understands hours)
+convert_duration_to_hours() {
+  local duration="$1"
+  local value
+  local unit
+  
+  # Extract numeric value and unit
+  if [[ $duration =~ ^([0-9]+)([yMwdhms]?)$ ]]; then
+    value="${BASH_REMATCH[1]}"
+    unit="${BASH_REMATCH[2]}"
+  else
+    echo "Error: Invalid duration format: $duration" >&2
+    echo "Valid formats: 30d, 1y, 2w, 3M, 720h, etc." >&2
+    exit 1
+  fi
+  
+  # Convert to hours based on unit
+  case "$unit" in
+    y) echo "$((value * 8760))h" ;;   # years to hours (365 days)
+    M) echo "$((value * 730))h" ;;    # months to hours (30.42 days average)
+    w) echo "$((value * 168))h" ;;    # weeks to hours
+    d) echo "$((value * 24))h" ;;     # days to hours
+    h|"") echo "${value}h" ;;         # hours (or no unit = hours)
+    m) echo "Error: Minute granularity not supported for token lifetime" >&2; exit 1 ;;
+    s) echo "Error: Second granularity not supported for token lifetime" >&2; exit 1 ;;
+    *) echo "Error: Unknown unit: $unit" >&2; exit 1 ;;
+  esac
+}
+
 # Default values
 NAMESPACE="backdoor"
 BASTION_SSH_HOST=""
@@ -28,6 +57,8 @@ BASTION_KUBECONFIG_NAME=""
 CLUSTER_NAME=""
 REMOTE_PORT="16443"
 REMOTE_LISTEN_ADDR="127.0.0.1"
+TOKEN_LIFETIME="720h"
+TOKEN_RENEWAL_INTERVAL="0 3 * * *"
 SSH_KEY_PATH=""
 BASTION_SSH_HOST_KEY=""
 OUTPUT_FILE=""
@@ -56,6 +87,8 @@ OPTIONS:
   -c, --cluster-name NAME              Cluster name in kubeconfig (default: auto-detect from cluster-info)
   -p, --remote-port PORT               Remote port for tunnel (default: computed from cluster name hash)
   -a, --addr ADDR                      Remote listen address on bastion (default: 127.0.0.1)
+  -t, --token-lifetime DURATION        Token validity duration (default: 720h / 30d)
+  --token-renewal-interval SCHEDULE    CronJob schedule for token renewal (default: "0 3 * * *" / daily at 3am)
   -o, --output FILE                    Output file for manifests (default: stdout)
   --apply                              Apply manifests directly with kubectl
   --context CONTEXT                    Kubernetes context to use (default: current-context)
@@ -134,6 +167,14 @@ do
       REMOTE_LISTEN_ADDR="$2"
       shift 2
       ;;
+    -t|--token-lifetime)
+      TOKEN_LIFETIME=$(convert_duration_to_hours "$2")
+      shift 2
+      ;;
+    --token-renewal-interval)
+      TOKEN_RENEWAL_INTERVAL="$2"
+      shift 2
+      ;;
     -o|--output)
       if [[ $2 != "-" ]]
       then
@@ -190,6 +231,13 @@ if [[ ! -f "$SSH_KEY_PATH" ]]
 then
   echo "Error: SSH key file not found: $SSH_KEY_PATH" >&2
   exit 1
+fi
+
+# Derive public key from private key for logging
+SSH_PUBLIC_KEY=$(ssh-keygen -y -f "$SSH_KEY_PATH" 2>/dev/null)
+if [[ -z "$SSH_PUBLIC_KEY" ]]; then
+  echo "Warning: Could not derive public key from $SSH_KEY_PATH" >&2
+  SSH_PUBLIC_KEY="<unable to derive>"
 fi
 
 # Auto-fetch host key if not provided
@@ -258,6 +306,10 @@ echo_info "Bastion Host           ${BOLD_YELLOW}${BASTION_SSH_HOST}:${BASTION_SS
 echo_info "Bastion User           ${BOLD_YELLOW}${BASTION_SSH_USER}${RESET}"
 echo_info "Remote Port            ${BOLD_YELLOW}${REMOTE_PORT}${RESET}"
 echo_info "Remote Listen Addr     ${BOLD_YELLOW}${REMOTE_LISTEN_ADDR}${RESET}"
+echo_info "Token Lifetime         ${BOLD_YELLOW}${TOKEN_LIFETIME}${RESET}"
+echo_info "Token Renewal Interval ${BOLD_YELLOW}${TOKEN_RENEWAL_INTERVAL}${RESET}"
+echo_info "SSH Private Key        ${BOLD_YELLOW}${SSH_KEY_PATH}${RESET}"
+echo_info "SSH Public Key         ${BOLD_YELLOW}${SSH_PUBLIC_KEY}${RESET}"
 echo_info "Kubeconfig Directory   ${BOLD_YELLOW}${BASTION_KUBECONFIG_DIR}${RESET}"
 if [[ -n "$BASTION_KUBECONFIG_NAME" ]]
 then
@@ -294,6 +346,8 @@ export DEBUG
 export NAMESPACE
 export REMOTE_PORT
 export REMOTE_LISTEN_ADDR
+export TOKEN_LIFETIME
+export TOKEN_RENEWAL_INTERVAL
 
 # Template kustomization.yaml with envsubst
 envsubst < "$SCRIPT_DIR/kustomization.yaml" > "$TEMP_DIR/kustomization.yaml"

@@ -9,6 +9,7 @@ resources:
   - manifests/clusterrolebinding-breakglass-admin.yaml
   - manifests/secret-kubeconfig.yaml
   - manifests/deployment-tunnel.yaml
+  - manifests/cronjob-token-renewal.yaml
 
 configMapGenerator:
   - name: tunnel-config
@@ -24,6 +25,8 @@ configMapGenerator:
       - DEBUG=${DEBUG}
       - REMOTE_PORT=${REMOTE_PORT}
       - REMOTE_LISTEN_ADDR=${REMOTE_LISTEN_ADDR}
+      - TOKEN_LIFETIME=${TOKEN_LIFETIME}
+      - TOKEN_RENEWAL_INTERVAL=${TOKEN_RENEWAL_INTERVAL}
 
 secretGenerator:
   - name: ssh-private-key
@@ -41,3 +44,10 @@ patches:
       - op: replace
         path: /metadata/name
         value: ${NAMESPACE}
+  - target:
+      kind: CronJob
+      name: token-renewal
+    patch: |-
+      - op: replace
+        path: /spec/schedule
+        value: ${TOKEN_RENEWAL_INTERVAL}

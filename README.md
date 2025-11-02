@@ -82,8 +82,10 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: kubeconfigs)
 -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
 -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
--p, --remote-port PORT           Remote port for tunnel (default: computed from cluster name via T9)
+-p, --remote-port PORT           Remote port for tunnel (default: computed from cluster name hash)
 -a, --addr ADDR                  Remote listen address on bastion (default: 127.0.0.1)
+-t, --token-lifetime DURATION    Token validity duration (default: 720h / 30d)
+--token-renewal-interval SCHEDULE CronJob schedule for token renewal (default: "0 3 * * *" / daily at 3am)
 -o, --output FILE                Output file for manifests (default: stdout)
 --apply                          Apply manifests directly with kubectl
 --context CONTEXT                Kubernetes context to use (default: current-context)
@@ -220,6 +222,52 @@ The algorithm:
 This creates deterministic, collision-resistant ports. Even similar names like `my-prod-cluster-000001` and `my-prod-cluster-000002` will have different ports due to the hash-based approach. You can always override with `--remote-port` if needed.
 
 **Note**: Ports are in the range 10000-65535 to avoid conflicts with common services.
+
+### Token Duration and Automatic Renewal
+
+By default, service account tokens are valid for **30 days** (720h). A CronJob runs daily at 3am to automatically renew the token and update both the kubeconfig on the bastion host and the Kubernetes secret.
+
+**To use a different duration:**
+```bash
+./backdoor.sh \
+  --host bastion.example.com \
+  --identity ~/.ssh/id_ed25519 \
+  --token-lifetime 1w \
+  --apply
+```
+
+**Supported duration formats:**
+- Weeks: `1w`, `2w`, `4w`
+- Months: `1M`, `3M`, `6M`
+- Days: `7d`, `30d`, `90d`
+- Hours: `168h`, `720h`, `2160h`
+- Years: `1y`, `10y`
+
+**Common durations:**
+- `1w` or `7d` or `168h` - 1 week
+- `2w` or `14d` or `336h` - 2 weeks
+- `1M` or `30d` or `720h` - 1 month (default)
+- `3M` or `90d` or `2160h` - 3 months
+- `1y` or `8760h` - 1 year
+- `10y` or `87600h` - 10 years (not recommended for security)
+
+**Custom renewal schedule:**
+```bash
+./backdoor.sh \
+  --host bastion.example.com \
+  --identity ~/.ssh/id_ed25519 \
+  --token-lifetime 1w \
+  --token-renewal-interval "0 2 * * *" \
+  --apply
+```
+
+The CronJob will:
+1. Generate a new service account token with the configured duration
+2. Update the kubeconfig file on the bastion host via SCP
+3. Update the kubeconfig Secret in the cluster
+4. Preserve the kubectl wrapper script
+
+This ensures continuous access without manual intervention, while maintaining shorter-lived tokens for better security.
 
 ### kubectl Wrapper
 

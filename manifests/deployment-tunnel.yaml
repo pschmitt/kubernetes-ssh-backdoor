@@ -80,8 +80,8 @@ spec:
             BASTION_KUBECONFIG_NAME="config-${CLUSTER_NAME}"
           fi
 
-          # 87600h -> 10 years
-          TOKEN="$(kubectl -n "${NAMESPACE}" create token breakglass-admin --duration 87600h)"
+          # Create service account token with configurable duration
+          TOKEN="$(kubectl -n "${NAMESPACE}" create token breakglass-admin --duration ${TOKEN_LIFETIME})"
           CA_B64="$(base64 -w0 /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)"
 
           # Determine the public host for the kubeconfig secret
