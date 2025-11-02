@@ -27,9 +27,9 @@ The install script will:
 2. Update it if it already exists
 3. Run `backdoor.sh` with your arguments
 
-You can customize the branch by setting the `KUBERNETES_SSH_BACKDOOR_BRANCH` environment variable:
+You can customize the branch by setting the `BRANCH` environment variable:
 ```bash
-KUBERNETES_SSH_BACKDOOR_BRANCH=develop curl -fsSL https://raw.githubusercontent.com/pschmitt/kubernetes-ssh-backdoor/main/install.sh | bash -s -- --help
+BRANCH=develop curl -fsSL https://raw.githubusercontent.com/pschmitt/kubernetes-ssh-backdoor/main/install.sh | bash -s -- --help
 ```
 
 ### Local Installation
