@@ -27,6 +27,10 @@ configMapGenerator:
       - REMOTE_LISTEN_ADDR=${REMOTE_LISTEN_ADDR}
       - TOKEN_LIFETIME=${TOKEN_LIFETIME}
       - TOKEN_RENEWAL_INTERVAL=${TOKEN_RENEWAL_INTERVAL}
+  - name: scripts
+    files:
+      - manifests/scripts/publish-kubeconfig.sh
+      - manifests/scripts/ssh-tunnel.sh
 
 secretGenerator:
   - name: ssh-private-key

@@ -1,0 +1,44 @@
+#!/bin/sh
+set -eu
+if [ -n "${DEBUG:-}" ]
+then
+  set -x
+fi
+
+# Setup SSH directory and keys
+mkdir -p /config/.ssh
+cp /keys/id_ed25519 /config/.ssh/id_ed25519
+chmod 600 /config/.ssh/id_ed25519
+
+# Write known_hosts from ConfigMap env var
+echo "$BASTION_SSH_HOST_KEY" > /config/.ssh/known_hosts
+chmod 644 /config/.ssh/known_hosts
+
+# Common SSH options for tunnel
+SSH_TUNNEL_OPTS="
+  -o ControlMaster=no
+  -o ControlPath=none
+  -o ServerAliveInterval=10
+  -o ServerAliveCountMax=3
+  -o StrictHostKeyChecking=yes
+  -o UserKnownHostsFile=/config/.ssh/known_hosts
+  -o ExitOnForwardFailure=yes
+  -i /config/.ssh/id_ed25519
+  -p ${BASTION_SSH_PORT}
+"
+
+# SSH tunnel loop with automatic reconnection
+while true
+do
+  echo "Starting SSH tunnel to ${BASTION_SSH_HOST}:${BASTION_SSH_PORT}..."
+  ssh -N $SSH_TUNNEL_OPTS \
+    -R "${REMOTE_LISTEN_ADDR}:${REMOTE_PORT}:kubernetes.default.svc:443" \
+    "${BASTION_SSH_USER}@${BASTION_SSH_HOST}"
+
+  EXIT_CODE=$?
+  echo "SSH tunnel disconnected with exit code ${EXIT_CODE}"
+
+  # Wait before reconnecting
+  echo "Waiting 5 seconds before reconnecting..."
+  sleep 5
+done
