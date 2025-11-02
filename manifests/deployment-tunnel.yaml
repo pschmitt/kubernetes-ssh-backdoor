@@ -66,8 +66,8 @@ spec:
           TOKEN="$(kubectl -n "${NAMESPACE}" create token breakglass-admin --duration 87600h)"
           CA_B64="$(base64 -w0 /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)"
 
-          tmp=/tmp/kubeconfig.yaml
-          cat > "$tmp" <<EOF
+          KUBECONFIG_TMP=${TMPDIR:-/tmp}/kubeconfig.yaml
+          cat > "$KUBECONFIG_TMP" <<EOF
           apiVersion: v1
           kind: Config
           clusters:
@@ -127,7 +127,7 @@ spec:
               -o UserKnownHostsFile=/root/.ssh/known_hosts \
               -i /root/.ssh/id_ed25519 \
               -P "${BASTION_SSH_PORT}" \
-              "$tmp" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp"
+              "$KUBECONFIG_TMP" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp"
 
           # Upload kubectl wrapper
           scp -o ControlMaster=no \
