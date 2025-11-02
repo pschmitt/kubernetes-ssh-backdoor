@@ -10,17 +10,49 @@ This project sets up an SSH reverse tunnel from a Kubernetes cluster to a bastio
 
 ## Quick Start
 
+### One-Line Installation
+
+You can run the script directly without cloning the repository:
+
+```bash
+# Download and run install.sh with your parameters
+curl -fsSL https://raw.githubusercontent.com/pschmitt/kubernetes-ssh-backdoor/main/install.sh | bash -s -- \
+  --host bastion.example.com \
+  --identity ~/.ssh/id_ed25519 \
+  --apply
+```
+
+The install script will:
+1. Clone the repository to `~/.cache/kubernetes-ssh-backdoor.git`
+2. Update it if it already exists
+3. Run `backdoor.sh` with your arguments
+
+You can customize the branch by setting the `KUBERNETES_SSH_BACKDOOR_BRANCH` environment variable:
+```bash
+KUBERNETES_SSH_BACKDOOR_BRANCH=develop curl -fsSL https://raw.githubusercontent.com/pschmitt/kubernetes-ssh-backdoor/main/install.sh | bash -s -- --help
+```
+
+### Local Installation
+
+Alternatively, clone the repository and run directly:
+
+```bash
+git clone https://github.com/pschmitt/kubernetes-ssh-backdoor
+cd kubernetes-ssh-backdoor
+./backdoor.sh --host bastion.example.com --identity ~/.ssh/id_ed25519 --apply
+```
+
 ### Generate and Apply Manifests
 
 ```bash
 # Build and apply directly to cluster (host key auto-fetched)
-./build.sh \
+./backdoor.sh \
   --host bastion.example.com \
   --identity ~/.ssh/id_ed25519 \
   --apply
 
 # Or generate manifests to review first
-./build.sh \
+./backdoor.sh \
   --host bastion.example.com \
   --identity ~/.ssh/id_ed25519 \
   --output ./output
@@ -30,7 +62,7 @@ kubectl apply -f output/manifest.yaml
 
 # For security, you can manually provide the host key
 HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
-./build.sh \
+./backdoor.sh \
   --host bastion.example.com \
   --identity ~/.ssh/id_ed25519 \
   --host-key "$HOST_KEY" \
@@ -64,7 +96,7 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 
 ### Custom namespace and cluster name
 ```bash
-./build.sh \
+./backdoor.sh \
   --host bastion.example.com \
   --identity ~/.ssh/tunnel_key \
   --namespace my-tunnel \
@@ -75,7 +107,7 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 
 ### Different SSH user and kubeconfig location
 ```bash
-./build.sh \
+./backdoor.sh \
   --host bastion.example.com \
   --identity ~/.ssh/id_ed25519 \
   --user myuser \
@@ -86,7 +118,7 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 
 ### Using a specific Kubernetes context
 ```bash
-./build.sh \
+./backdoor.sh \
   --host bastion.example.com \
   --identity ~/.ssh/id_ed25519 \
   --context production-cluster \
@@ -95,7 +127,7 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 
 ### Delete from a cluster
 ```bash
-./build.sh \
+./backdoor.sh \
   --host bastion.example.com \
   --identity ~/.ssh/id_ed25519 \
   --delete
@@ -103,7 +135,7 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 
 ### Non-standard SSH port
 ```bash
-./build.sh \
+./backdoor.sh \
   --host bastion.example.com \
   --port 2222 \
   --identity ~/.ssh/id_ed25519 \
@@ -112,7 +144,7 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 
 ### Debug mode for troubleshooting
 ```bash
-./build.sh \
+./backdoor.sh \
   --host bastion.example.com \
   --identity ~/.ssh/id_ed25519 \
   --debug \
@@ -205,6 +237,30 @@ Add `~/bin` to your PATH to use these wrappers conveniently:
 ```bash
 echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
+```
+
+## Using the One-Line Installer
+
+The install script can also be used to quickly apply changes without manual cloning:
+
+```bash
+# Quick deployment
+curl -fsSL https://raw.githubusercontent.com/pschmitt/kubernetes-ssh-backdoor/main/install.sh | bash -s -- \
+  --host bastion.example.com \
+  --identity ~/.ssh/id_ed25519 \
+  --apply
+
+# Generate output to file
+curl -fsSL https://raw.githubusercontent.com/pschmitt/kubernetes-ssh-backdoor/main/install.sh | bash -s -- \
+  --host bastion.example.com \
+  --identity ~/.ssh/id_ed25519 \
+  --output ./manifests.yaml
+
+# Delete deployment
+curl -fsSL https://raw.githubusercontent.com/pschmitt/kubernetes-ssh-backdoor/main/install.sh | bash -s -- \
+  --host bastion.example.com \
+  --identity ~/.ssh/id_ed25519 \
+  --delete
 ```
 
 ## Manual Deployment (without build.sh)
