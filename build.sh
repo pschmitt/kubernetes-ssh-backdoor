@@ -5,6 +5,7 @@ set -euo pipefail
 # Default values
 NAMESPACE="backdoor"
 BASTION_SSH_HOST=""
+BASTION_SSH_PUBLIC_HOST=""
 BASTION_SSH_PORT="22"
 BASTION_SSH_USER="k8s-backdoor"
 BASTION_KUBECONFIG_DIR="kubeconfigs"
@@ -27,22 +28,23 @@ Usage: $0 [OPTIONS]
 Build Kubernetes manifests for SSH tunnel using Kustomize.
 
 OPTIONS:
-  -h, --host BASTION_SSH_HOST      Destination bastion host (required)
-  -P, --port BASTION_SSH_PORT      SSH port on bastion host (default: 22)
-  -i, --identity SSH_KEY_PATH      Path to SSH private key (required)
-  -k, --host-key HOST_PUBLIC_KEY   SSH host public key (default: auto-fetch with ssh-keyscan)
-  -n, --namespace NAMESPACE        Kubernetes namespace (default: backdoor)
-  -u, --user BASTION_SSH_USER      SSH user on bastion (default: k8s-backdoor)
-  -d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: .kube/config.d)
-  -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
-  -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
-  -p, --remote-port PORT           Remote port for tunnel (default: computed from cluster name via T9)
-  -o, --output FILE                Output file for manifests (default: stdout)
-  -a, --apply                      Apply manifests directly with kubectl
-  --context CONTEXT                Kubernetes context to use (default: current-context)
-  --delete                         Delete manifests from the current cluster with kubectl
-  --debug                          Enable debug mode (sets -x in container scripts)
-  --help                           Show this help message
+  -h, --host BASTION_SSH_HOST         Destination bastion host (required)
+  -H, --public-host PUBLIC_HOST       Public hostname for kubeconfig (default: same as --host)
+  -P, --port BASTION_SSH_PORT         SSH port on bastion host (default: 22)
+  -i, --identity SSH_KEY_PATH         Path to SSH private key (required)
+  -k, --host-key HOST_PUBLIC_KEY      SSH host public key (default: auto-fetch with ssh-keyscan)
+  -n, --namespace NAMESPACE           Kubernetes namespace (default: backdoor)
+  -u, --user BASTION_SSH_USER         SSH user on bastion (default: k8s-backdoor)
+  -d, --kubeconfig-dir DIR            Kubeconfig directory on bastion (default: .kube/config.d)
+  -f, --kubeconfig-name NAME          Kubeconfig filename on bastion (default: config-<cluster-name>)
+  -c, --cluster-name NAME             Cluster name in kubeconfig (default: auto-detect from cluster-info)
+  -p, --remote-port PORT              Remote port for tunnel (default: computed from cluster name via T9)
+  -o, --output FILE                   Output file for manifests (default: stdout)
+  -a, --apply                         Apply manifests directly with kubectl
+  --context CONTEXT                   Kubernetes context to use (default: current-context)
+  --delete                            Delete manifests from the current cluster with kubectl
+  --debug                             Enable debug mode (sets -x in container scripts)
+  --help                              Show this help message
 
 EXAMPLES:
   # Generate manifests to stdout (host key auto-fetched)
@@ -70,6 +72,10 @@ do
   case $1 in
     -h|--host)
       BASTION_SSH_HOST="$2"
+      shift 2
+      ;;
+    -H|--public-host)
+      BASTION_SSH_PUBLIC_HOST="$2"
       shift 2
       ;;
     -P|--port)
@@ -196,7 +202,7 @@ then
   if [[ -z "$CLUSTER_NAME" ]]
   then
     # Fallback to context name
-    CLUSTER_NAME=$($KUBECTL_CMD config current-context 2>/dev/null || echo "kubernetes")
+    CLUSTER_NAME=${KUBE_CONTEXT:-$($KUBECTL_CMD config current-context 2>/dev/null || echo "kubernetes")}
     echo "Using current context as cluster name: $CLUSTER_NAME" >&2
   else
     echo "Detected cluster name from cluster-info: $CLUSTER_NAME" >&2
@@ -277,6 +283,7 @@ export NAMESPACE
 export BASTION_KUBECONFIG_DIR
 export BASTION_KUBECONFIG_NAME
 export BASTION_SSH_HOST
+export BASTION_SSH_PUBLIC_HOST
 export HOST_PUBLIC_KEY
 export BASTION_SSH_PORT
 export BASTION_SSH_USER

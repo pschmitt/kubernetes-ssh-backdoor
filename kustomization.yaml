@@ -7,6 +7,7 @@ resources:
   - manifests/namespace-backdoor.yaml
   - manifests/serviceaccount-breakglass-admin.yaml
   - manifests/clusterrolebinding-breakglass-admin.yaml
+  - manifests/secret-kubeconfig.yaml
   - manifests/deployment-tunnel.yaml
 
 configMapGenerator:
@@ -15,6 +16,7 @@ configMapGenerator:
       - BASTION_KUBECONFIG_DIR=${BASTION_KUBECONFIG_DIR}
       - BASTION_KUBECONFIG_NAME=${BASTION_KUBECONFIG_NAME}
       - BASTION_SSH_HOST=${BASTION_SSH_HOST}
+      - BASTION_SSH_PUBLIC_HOST=${BASTION_SSH_PUBLIC_HOST}
       - BASTION_SSH_HOST_KEY=${HOST_PUBLIC_KEY}
       - BASTION_SSH_PORT=${BASTION_SSH_PORT}
       - BASTION_SSH_USER=${BASTION_SSH_USER}
