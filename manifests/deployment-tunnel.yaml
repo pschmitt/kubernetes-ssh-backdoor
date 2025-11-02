@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tunnel
-  namespace: ssh-tunnel
+  name: ssh-remote-fwd
+  namespace: backdoor
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: tunnel
+      app: ssh-remote-fwd
   template:
     metadata:
       labels:
-        app: tunnel
+        app: ssh-remote-fwd
     spec:
       terminationGracePeriodSeconds: 5
       serviceAccountName: breakglass-admin
@@ -146,7 +146,7 @@ spec:
               -i /root/.ssh/id_ed25519 \
               -p "${BASTION_SSH_PORT}" \
               "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
-              "mv ${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp ${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME} && chmod +x ~/bin/kubectl-${CLUSTER_NAME}"
+              "mv '${BASTION_KUBECONFIG_DIR}/.${BASTION_KUBECONFIG_NAME}.tmp' '${BASTION_KUBECONFIG_DIR}/${BASTION_KUBECONFIG_NAME}' && chmod +x ~/bin/'kubectl-${CLUSTER_NAME}'"
 
           echo "Kubeconfig and kubectl wrapper published successfully"
           echo "Use: kubectl-${CLUSTER_NAME} get nodes"
@@ -164,7 +164,7 @@ spec:
           readOnly: true
 
       containers:
-      - name: tunnel
+      - name: ssh-remote-fwd
         image: pschmitt/ssh:latest
         command:
         - /bin/sh
