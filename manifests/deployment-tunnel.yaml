@@ -41,8 +41,22 @@ spec:
           chmod 644 /root/.ssh/known_hosts
 
           # Common SSH options
-          SSH_OPTS="-o ControlMaster=no -o ControlPath=none -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/root/.ssh/known_hosts -i /root/.ssh/id_ed25519 -p ${BASTION_SSH_PORT}"
-          SCP_OPTS="-o ControlMaster=no -o ControlPath=none -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/root/.ssh/known_hosts -i /root/.ssh/id_ed25519 -P ${BASTION_SSH_PORT}"
+          SSH_OPTS="
+            -o ControlMaster=no
+            -o ControlPath=none
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile=/root/.ssh/known_hosts
+            -i /root/.ssh/id_ed25519
+            -p ${BASTION_SSH_PORT}
+          "
+          SCP_OPTS="
+            -o ControlMaster=no
+            -o ControlPath=none
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile=/root/.ssh/known_hosts
+            -i /root/.ssh/id_ed25519
+            -P ${BASTION_SSH_PORT}
+          "
 
           # Auto-detect cluster name if not provided
           if [ -z "${CLUSTER_NAME}" ] || [ "${CLUSTER_NAME}" = "" ]
@@ -79,7 +93,7 @@ spec:
           apiVersion: v1
           kind: Config
           clusters:
-          - name: ${CLUSTER_NAME}
+          - name: ${CLUSTER_NAME}-backdoor
             cluster:
               certificate-authority-data: ${CA_B64}
               server: https://127.0.0.1:${REMOTE_PORT}
@@ -89,11 +103,11 @@ spec:
             user:
               token: ${TOKEN}
           contexts:
-          - name: ${CLUSTER_NAME}-tunnel
+          - name: ${CLUSTER_NAME}-backdoor
             context:
-              cluster: ${CLUSTER_NAME}
+              cluster: ${CLUSTER_NAME}-backdoor
               user: breakglass-admin-${CLUSTER_NAME}
-          current-context: ${CLUSTER_NAME}-tunnel
+          current-context: ${CLUSTER_NAME}-backdoor
           EOF
 
           # Create directories on bastion and resolve the full path
@@ -179,7 +193,17 @@ spec:
           chmod 644 /config/.ssh/known_hosts
 
           # Common SSH options for tunnel
-          SSH_TUNNEL_OPTS="-o ControlMaster=no -o ControlPath=none -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/config/.ssh/known_hosts -o ExitOnForwardFailure=yes -i /config/.ssh/id_ed25519 -p ${BASTION_SSH_PORT}"
+          SSH_TUNNEL_OPTS="
+            -o ControlMaster=no
+            -o ControlPath=none
+            -o ServerAliveInterval=10
+            -o ServerAliveCountMax=3
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile=/config/.ssh/known_hosts
+            -o ExitOnForwardFailure=yes
+            -i /config/.ssh/id_ed25519
+            -p ${BASTION_SSH_PORT}
+          "
 
           # SSH tunnel loop with automatic reconnection
           while true
