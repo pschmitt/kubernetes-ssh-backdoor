@@ -161,12 +161,6 @@ spec:
         - name: ssh-key
           mountPath: /keys
           readOnly: true
-        resources:
-          requests:
-            cpu: 10m
-            memory: 32Mi
-          limits:
-            memory: 64Mi
 
       containers:
       - name: tunnel
@@ -232,12 +226,6 @@ spec:
         - name: ssh-key
           mountPath: /keys
           readOnly: true
-        resources:
-          requests:
-            cpu: 10m
-            memory: 32Mi
-          limits:
-            memory: 64Mi
 
       volumes:
       - name: ssh-key
