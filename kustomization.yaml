@@ -23,7 +23,7 @@ configMapGenerator:
       - SSH_KNOWN_HOSTS=PLACEHOLDER_HOST_PUBLIC_KEY
 
 secretGenerator:
-  - name: ssh-key
+  - name: ssh-private-key
     behavior: create
     files:
       - id_ed25519=PLACEHOLDER_SSH_KEY_PATH

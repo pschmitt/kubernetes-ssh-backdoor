@@ -272,7 +272,7 @@ configMapGenerator:
       - DEBUG=$DEBUG
 
 secretGenerator:
-  - name: ssh-key
+  - name: ssh-private-key
     files:
       - id_ed25519=id_ed25519
 

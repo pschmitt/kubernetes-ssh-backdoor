@@ -158,7 +158,7 @@ spec:
         - configMapRef:
             name: tunnel-config
         volumeMounts:
-        - name: ssh-key
+        - name: ssh-private-key
           mountPath: /keys
           readOnly: true
 
@@ -223,12 +223,12 @@ spec:
         - configMapRef:
             name: tunnel-config
         volumeMounts:
-        - name: ssh-key
+        - name: ssh-private-key
           mountPath: /keys
           readOnly: true
 
       volumes:
-      - name: ssh-key
+      - name: ssh-private-key
         secret:
-          secretName: ssh-key
+          secretName: ssh-private-key
           defaultMode: 0444
