@@ -16,6 +16,7 @@ HOST_PUBLIC_KEY=""
 OUTPUT_FILE=""
 APPLY=""
 DELETE=""
+RESTART=""
 DEBUG=""
 KUBE_CONTEXT=""
 
@@ -121,6 +122,10 @@ do
       ;;
     --delete)
       DELETE=1
+      shift
+      ;;
+    --restart)
+      RESTART=1
       shift
       ;;
     --debug)
@@ -286,6 +291,11 @@ envsubst < "$SCRIPT_DIR/kustomization.yaml" > "$TEMP_DIR/kustomization.yaml"
 if [[ -n "$APPLY" ]]
 then
   $KUBECTL_CMD apply -k "$TEMP_DIR"
+  if [[ -n "$RESTART" ]]
+  then
+    echo "Restarting backdoor pods in namespace $NAMESPACE..." >&2
+    $KUBECTL_CMD -n "$NAMESPACE" rollout restart deployment # backdoor-ssh-tunnel
+  fi
 elif [[ -n "$DELETE" ]]
 then
   $KUBECTL_CMD delete -k "$TEMP_DIR"
