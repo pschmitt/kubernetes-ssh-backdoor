@@ -114,7 +114,10 @@ do
       shift 2
       ;;
     -o|--output)
-      OUTPUT_FILE="$2"
+      if [[ $2 != "-" ]]
+      then
+        OUTPUT_FILE="$2"
+      fi
       shift 2
       ;;
     -a|--apply)
