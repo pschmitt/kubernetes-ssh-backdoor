@@ -72,26 +72,27 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 ## Build Script Options
 
 ```
--h, --host BASTION_SSH_HOST      Destination bastion host (required)
--H, --public-host PUBLIC_HOST    Public hostname for kubeconfig (default: same as --host)
--P, --port BASTION_SSH_PORT      SSH port on bastion host (default: 22)
--i, --identity SSH_KEY_PATH      Path to SSH private key (required)
--k, --host-key HOST_PUBLIC_KEY   SSH host public key (default: auto-fetch with ssh-keyscan)
--n, --namespace NAMESPACE        Kubernetes namespace (default: backdoor)
--u, --user BASTION_SSH_USER      SSH user on bastion (default: k8s-backdoor)
--d, --kubeconfig-dir DIR         Kubeconfig directory on bastion (default: kubeconfigs)
--f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
--c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
--p, --remote-port PORT           Remote port for tunnel (default: computed from cluster name hash)
--a, --addr ADDR                  Remote listen address on bastion (default: 127.0.0.1)
--t, --token-lifetime DURATION    Token validity duration (default: 720h / 30d)
---token-renewal-interval SCHEDULE CronJob schedule for token renewal (default: "0 3 * * *" / daily at 3am)
--o, --output FILE                Output file for manifests (default: stdout)
---apply                          Apply manifests directly with kubectl
---context CONTEXT                Kubernetes context to use (default: current-context)
---delete                         Delete manifests from the current cluster with kubectl
---debug                          Enable debug mode (sets -x in container scripts)
---help                           Show this help message
+-H, --host BASTION_SSH_HOST          Destination bastion host (required)
+-P, --public-host PUBLIC_HOST        Public hostname for kubeconfig (default: same as --host)
+-P, --port BASTION_SSH_PORT          SSH port on bastion host (default: 22)
+-i, --identity SSH_KEY_PATH          Path to SSH private key (required)
+-k, --host-key BASTION_SSH_HOST_KEY  SSH host public key (default: auto-fetch with ssh-keyscan)
+-n, --namespace NAMESPACE            Kubernetes namespace (default: backdoor)
+-u, --user BASTION_SSH_USER          SSH user on bastion (default: k8s-backdoor)
+-d, --kubeconfig-dir DIR             Kubeconfig directory on bastion (default: .kube/config.d)
+-f, --kubeconfig-name NAME           Kubeconfig filename on bastion (default: config-<cluster-name>)
+-c, --cluster-name NAME              Cluster name in kubeconfig (default: auto-detect from cluster-info)
+-R, --remote-port PORT               Remote port for tunnel (default: computed from cluster name hash)
+-a, --addr ADDR                      Remote listen address on bastion (default: 127.0.0.1)
+-t, --token-lifetime DURATION        Token validity duration (default: 720h / 30d)
+--token-renewal-interval SCHEDULE    CronJob schedule for token renewal (default: "0 3 * * *" / daily at 3am)
+-o, --output FILE                    Output file for manifests (default: stdout)
+--apply                              Apply manifests directly with kubectl
+--context CONTEXT                    Kubernetes context to use (default: current-context)
+--delete                             Delete manifests from the current cluster with kubectl
+--yolo                               Shorthand for --addr 0.0.0.0 --token-lifetime 10y --apply --restart
+-D, --debug                          Enable debug mode (sets -x in container scripts)
+-h, --help                           Show this help message
 ```
 
 ## Examples
@@ -153,6 +154,23 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
   --apply
 ```
 
+### YOLO mode (quick insecure setup)
+```bash
+# WARNING: This is insecure! Only use for testing/development
+./backdoor.sh \
+  --host bastion.example.com \
+  --identity ~/.ssh/id_ed25519 \
+  --yolo
+```
+
+The `--yolo` flag is a shorthand that combines:
+- `--addr 0.0.0.0` - Bind to all interfaces (accessible from network)
+- `--token-lifetime 10y` - 10 year token (basically permanent)
+- `--apply` - Apply directly to cluster
+- `--restart` - Restart the deployment
+
+**⚠️ Security Warning**: This setup is intentionally insecure for quick testing. Never use `--yolo` in production!
+
 ## Cluster Name Detection
 
 The cluster name is used to identify the cluster in the generated kubeconfig. The build script will:
@@ -166,16 +184,16 @@ This ensures unique and meaningful cluster names in your kubeconfig files.
 
 ## Kubeconfig File Naming
 
-By default, kubeconfig files are pushed to `kubeconfigs/config-<cluster-name>` on the bastion host.
+By default, kubeconfig files are pushed to `.kube/config.d/<cluster-name>.yaml` on the bastion host.
 
 For example, if your cluster name is `acme-corp-prod-cluster`, the file will be:
 ```
-kubeconfigs/config-acme-corp-prod-cluster
+~/.kube/config.d/acme-corp-prod-cluster.yaml
 ```
 
 You can customize this with:
-- `--kubeconfig-dir` to change the directory (e.g., `.kube/clusters`)
-- `--kubeconfig-name` to set a specific filename (e.g., `production`)
+- `--kubeconfig-dir` to change the directory (e.g., `kubeconfigs`)
+- `--kubeconfig-name` to set a specific filename (e.g., `production.yaml`)
 
 ## Architecture
 

@@ -3,9 +3,10 @@
 set -euo pipefail
 
 # Color codes
-BOLD_YELLOW='\033[1;33m'
-BOLD_GREEN='\033[1;32m'
 BOLD_BLUE='\033[1;34m'
+BOLD_GREEN='\033[1;32m'
+BOLD_RED='\033[1;31m'
+BOLD_YELLOW='\033[1;33m'
 RESET='\033[0m'
 
 # Helper functions
@@ -15,6 +16,10 @@ echo_info() {
 
 echo_warning() {
   echo -e "${BOLD_YELLOW}WRN${RESET} $*" >&2
+}
+
+echo_error() {
+  echo -e "${BOLD_RED}ERR${RESET} $*" >&2
 }
 
 echo_success() {
@@ -45,9 +50,9 @@ convert_duration_to_hours() {
     w) echo "$((value * 168))h" ;;    # weeks to hours
     d) echo "$((value * 24))h" ;;     # days to hours
     h|"") echo "${value}h" ;;         # hours (or no unit = hours)
-    m) echo "Error: Minute granularity not supported for token lifetime" >&2; exit 1 ;;
-    s) echo "Error: Second granularity not supported for token lifetime" >&2; exit 1 ;;
-    *) echo "Error: Unknown unit: $unit" >&2; exit 1 ;;
+    m) echo "Error: Minute granularity not supported for token lifetime" >&2; return 1 ;;
+    s) echo "Error: Second granularity not supported for token lifetime" >&2; return 1 ;;
+    *) echo "Error: Unknown unit: $unit" >&2; return 1 ;;
   esac
 }
 
@@ -80,8 +85,8 @@ Usage: $0 [OPTIONS]
 Build Kubernetes manifests for SSH tunnel using Kustomize.
 
 OPTIONS:
-  -h, --host BASTION_SSH_HOST          Destination bastion host (required)
-  -H, --public-host PUBLIC_HOST        Public hostname for kubeconfig (default: same as --host)
+  -H, --host BASTION_SSH_HOST          Destination bastion host (required)
+  -P, --public-host PUBLIC_HOST        Public hostname for kubeconfig (default: same as --host)
   -P, --port BASTION_SSH_PORT          SSH port on bastion host (default: 22)
   -i, --identity SSH_KEY_PATH          Path to SSH private key (required)
   -k, --host-key BASTION_SSH_HOST_KEY  SSH host public key (default: auto-fetch with ssh-keyscan)
@@ -90,7 +95,7 @@ OPTIONS:
   -d, --kubeconfig-dir DIR             Kubeconfig directory on bastion (default: .kube/config.d)
   -f, --kubeconfig-name NAME           Kubeconfig filename on bastion (default: config-<cluster-name>)
   -c, --cluster-name NAME              Cluster name in kubeconfig (default: auto-detect from cluster-info)
-  -p, --remote-port PORT               Remote port for tunnel (default: computed from cluster name hash)
+  -R, --remote-port PORT               Remote port for tunnel (default: computed from cluster name hash)
   -a, --addr ADDR                      Remote listen address on bastion (default: 127.0.0.1)
   -t, --token-lifetime DURATION        Token validity duration (default: 720h / 30d)
   --token-renewal-interval SCHEDULE    CronJob schedule for token renewal (default: "0 3 * * *" / daily at 3am)
@@ -98,8 +103,9 @@ OPTIONS:
   --apply                              Apply manifests directly with kubectl
   --context CONTEXT                    Kubernetes context to use (default: current-context)
   --delete                             Delete manifests from the current cluster with kubectl
-  --debug                              Enable debug mode (sets -x in container scripts)
-  --help                               Show this help message
+  --yolo                               Shorthand for --addr 0.0.0.0 --token-lifetime 10y --apply --restart
+  -D, --debug                          Enable debug mode (sets -x in container scripts)
+  -h, --help                           Show this help message
 
 EXAMPLES:
   # Generate manifests to stdout (host key auto-fetched)
@@ -124,15 +130,15 @@ EOF
 while [[ $# -gt 0 ]]
 do
   case $1 in
-    -h|--host)
+    -H|--host)
       BASTION_SSH_HOST="$2"
       shift 2
       ;;
-    -H|--public-host)
+    -P|--public-host)
       BASTION_SSH_PUBLIC_HOST="$2"
       shift 2
       ;;
-    -P|--port)
+    -p|--port)
       BASTION_SSH_PORT="$2"
       shift 2
       ;;
@@ -164,7 +170,7 @@ do
       CLUSTER_NAME="$2"
       shift 2
       ;;
-    -p|--remote-port)
+    -R|--remote-port)
       REMOTE_PORT="$2"
       shift 2
       ;;
@@ -173,7 +179,11 @@ do
       shift 2
       ;;
     -t|--token-lifetime)
-      TOKEN_LIFETIME=$(convert_duration_to_hours "$2")
+      if ! TOKEN_LIFETIME="$(convert_duration_to_hours "$2")"
+      then
+        echo_error "Invalid token lifetime: '$2'"
+        exit 2
+      fi
       shift 2
       ;;
     --token-renewal-interval)
@@ -203,11 +213,18 @@ do
       RESTART=1
       shift
       ;;
-    --debug)
+    -D|--debug)
       DEBUG=1
       shift
       ;;
-    --help)
+    --yolo)
+      REMOTE_LISTEN_ADDR="0.0.0.0"
+      TOKEN_LIFETIME="$(convert_duration_to_hours "10y")"
+      APPLY=1
+      RESTART=1
+      shift
+      ;;
+    -h|--help)
       usage
       exit 0
       ;;
