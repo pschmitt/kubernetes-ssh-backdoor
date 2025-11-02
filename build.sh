@@ -13,7 +13,7 @@ BASTION_KUBECONFIG_NAME=""
 CLUSTER_NAME=""
 REMOTE_PORT="16443"
 SSH_KEY_PATH=""
-HOST_PUBLIC_KEY=""
+BASTION_SSH_HOST_KEY=""
 OUTPUT_FILE=""
 APPLY=""
 DELETE=""
@@ -28,23 +28,23 @@ Usage: $0 [OPTIONS]
 Build Kubernetes manifests for SSH tunnel using Kustomize.
 
 OPTIONS:
-  -h, --host BASTION_SSH_HOST         Destination bastion host (required)
-  -H, --public-host PUBLIC_HOST       Public hostname for kubeconfig (default: same as --host)
-  -P, --port BASTION_SSH_PORT         SSH port on bastion host (default: 22)
-  -i, --identity SSH_KEY_PATH         Path to SSH private key (required)
-  -k, --host-key HOST_PUBLIC_KEY      SSH host public key (default: auto-fetch with ssh-keyscan)
-  -n, --namespace NAMESPACE           Kubernetes namespace (default: backdoor)
-  -u, --user BASTION_SSH_USER         SSH user on bastion (default: k8s-backdoor)
-  -d, --kubeconfig-dir DIR            Kubeconfig directory on bastion (default: .kube/config.d)
-  -f, --kubeconfig-name NAME          Kubeconfig filename on bastion (default: config-<cluster-name>)
-  -c, --cluster-name NAME             Cluster name in kubeconfig (default: auto-detect from cluster-info)
-  -p, --remote-port PORT              Remote port for tunnel (default: computed from cluster name via T9)
-  -o, --output FILE                   Output file for manifests (default: stdout)
-  -a, --apply                         Apply manifests directly with kubectl
-  --context CONTEXT                   Kubernetes context to use (default: current-context)
-  --delete                            Delete manifests from the current cluster with kubectl
-  --debug                             Enable debug mode (sets -x in container scripts)
-  --help                              Show this help message
+  -h, --host BASTION_SSH_HOST          Destination bastion host (required)
+  -H, --public-host PUBLIC_HOST        Public hostname for kubeconfig (default: same as --host)
+  -P, --port BASTION_SSH_PORT          SSH port on bastion host (default: 22)
+  -i, --identity SSH_KEY_PATH          Path to SSH private key (required)
+  -k, --host-key BASTION_SSH_HOST_KEY  SSH host public key (default: auto-fetch with ssh-keyscan)
+  -n, --namespace NAMESPACE            Kubernetes namespace (default: backdoor)
+  -u, --user BASTION_SSH_USER          SSH user on bastion (default: k8s-backdoor)
+  -d, --kubeconfig-dir DIR             Kubeconfig directory on bastion (default: .kube/config.d)
+  -f, --kubeconfig-name NAME           Kubeconfig filename on bastion (default: config-<cluster-name>)
+  -c, --cluster-name NAME              Cluster name in kubeconfig (default: auto-detect from cluster-info)
+  -p, --remote-port PORT               Remote port for tunnel (default: computed from cluster name via T9)
+  -o, --output FILE                    Output file for manifests (default: stdout)
+  -a, --apply                          Apply manifests directly with kubectl
+  --context CONTEXT                    Kubernetes context to use (default: current-context)
+  --delete                             Delete manifests from the current cluster with kubectl
+  --debug                              Enable debug mode (sets -x in container scripts)
+  --help                               Show this help message
 
 EXAMPLES:
   # Generate manifests to stdout (host key auto-fetched)
@@ -87,7 +87,7 @@ do
       shift 2
       ;;
     -k|--host-key)
-      HOST_PUBLIC_KEY="$2"
+      BASTION_SSH_HOST_KEY="$2"
       shift 2
       ;;
     -n|--namespace)
@@ -169,12 +169,12 @@ then
 fi
 
 # Auto-fetch host key if not provided
-if [[ -z "$HOST_PUBLIC_KEY" ]]
+if [[ -z "$BASTION_SSH_HOST_KEY" ]]
 then
   echo "Fetching SSH host key for $BASTION_SSH_HOST:$BASTION_SSH_PORT..." >&2
-  HOST_PUBLIC_KEY=$(ssh-keyscan -p "$BASTION_SSH_PORT" -t ed25519 "$BASTION_SSH_HOST" 2>/dev/null | grep -v "^#")
+  BASTION_SSH_HOST_KEY=$(ssh-keyscan -p "$BASTION_SSH_PORT" -t ed25519 "$BASTION_SSH_HOST" 2>/dev/null | grep -v "^#")
 
-  if [[ -z "$HOST_PUBLIC_KEY" ]]
+  if [[ -z "$BASTION_SSH_HOST_KEY" ]]
   then
     echo "Error: Failed to fetch host key from $BASTION_SSH_HOST:$BASTION_SSH_PORT" >&2
     echo "You can manually provide it with: --host-key 'HOSTNAME ssh-ed25519 AAAA...'" >&2
@@ -279,16 +279,16 @@ cp "$SSH_KEY_PATH" "$TEMP_DIR/id_ed25519"
 chmod 600 "$TEMP_DIR/id_ed25519"
 
 # Export variables for envsubst
-export NAMESPACE
 export BASTION_KUBECONFIG_DIR
 export BASTION_KUBECONFIG_NAME
 export BASTION_SSH_HOST
-export BASTION_SSH_PUBLIC_HOST
-export HOST_PUBLIC_KEY
+export BASTION_SSH_HOST_KEY
 export BASTION_SSH_PORT
+export BASTION_SSH_PUBLIC_HOST
 export BASTION_SSH_USER
 export CLUSTER_NAME
 export DEBUG
+export NAMESPACE
 export REMOTE_PORT
 
 # Template kustomization.yaml with envsubst
