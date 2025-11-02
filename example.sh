@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Example usage of build.sh
+# Example usage of backdoor.sh
 # This file is for reference only - customize it for your environment
 
 # Set your variables
@@ -11,7 +11,7 @@ REMOTE_PORT="6443"
 BASTION_SSH_USER="tunnel"
 
 # Build and apply (host key will be auto-fetched)
-./build.sh \
+./backdoor.sh \
   --host "$BASTION_SSH_HOST" \
   --identity "$SSH_KEY_PATH" \
   --namespace "$NAMESPACE" \
@@ -21,7 +21,7 @@ BASTION_SSH_USER="tunnel"
   --apply
 
 # Or just generate to review first
-# ./build.sh \
+# ./backdoor.sh \
 #   --host "$BASTION_SSH_HOST" \
 #   --identity "$SSH_KEY_PATH" \
 #   --namespace "$NAMESPACE" \
@@ -37,7 +37,7 @@ BASTION_SSH_USER="tunnel"
 #   echo "Error: Could not fetch host key from $BASTION_SSH_HOST"
 #   exit 1
 # fi
-# ./build.sh \
+# ./backdoor.sh \
 #   --host "$BASTION_SSH_HOST" \
 #   --identity "$SSH_KEY_PATH" \
 #   --host-key "$HOST_KEY" \

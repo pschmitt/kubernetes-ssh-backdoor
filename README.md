@@ -79,8 +79,7 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 -k, --host-key BASTION_SSH_HOST_KEY  SSH host public key (default: auto-fetch with ssh-keyscan)
 -n, --namespace NAMESPACE            Kubernetes namespace (default: backdoor)
 -u, --user BASTION_SSH_USER          SSH user on bastion (default: k8s-backdoor)
--d, --kubeconfig-dir DIR             Kubeconfig directory on bastion (default: .kube/config.d)
--f, --kubeconfig-name NAME           Kubeconfig filename on bastion (default: config-<cluster-name>)
+-d, --kubeconfig-dir DIR             Kubeconfig directory on bastion (default: kubeconfigs)
 -c, --cluster-name NAME              Cluster name in kubeconfig (default: auto-detect from cluster-info)
 -R, --remote-port PORT               Remote port for tunnel (default: computed from cluster name hash)
 -a, --addr ADDR                      Remote listen address on bastion (default: 127.0.0.1)
@@ -184,16 +183,20 @@ This ensures unique and meaningful cluster names in your kubeconfig files.
 
 ## Kubeconfig File Naming
 
-By default, kubeconfig files are pushed to `.kube/config.d/<cluster-name>.yaml` on the bastion host.
+By default, two kubeconfig files are pushed to the bastion host in the `kubeconfigs/` directory:
 
-For example, if your cluster name is `acme-corp-prod-cluster`, the file will be:
+1. **`kubeconfigs/<cluster-name>.yaml`** - Uses the public hostname (from `--public-host` or `--host`)
+2. **`kubeconfigs/<cluster-name>-local.yaml`** - Uses `127.0.0.1` (localhost)
+
+For example, if your cluster name is `acme-corp-prod-cluster`, the files will be:
 ```
-~/.kube/config.d/acme-corp-prod-cluster.yaml
+~/kubeconfigs/acme-corp-prod-cluster.yaml        # Uses bastion.example.com:16443
+~/kubeconfigs/acme-corp-prod-cluster-local.yaml  # Uses 127.0.0.1:16443
 ```
 
-You can customize this with:
-- `--kubeconfig-dir` to change the directory (e.g., `kubeconfigs`)
-- `--kubeconfig-name` to set a specific filename (e.g., `production.yaml`)
+The `-local.yaml` version is useful when accessing from the bastion host itself, while the regular `.yaml` version is for accessing from machines that can reach the bastion.
+
+You can customize the directory with `--kubeconfig-dir` (e.g., `.kube/config.d`)
 
 ## Architecture
 
@@ -281,8 +284,8 @@ By default, service account tokens are valid for **30 days** (720h). A CronJob r
 
 The CronJob will:
 1. Generate a new service account token with the configured duration
-2. Update the kubeconfig file on the bastion host via SCP
-3. Update the kubeconfig Secret in the cluster
+2. Update both kubeconfig files on the bastion host via SCP (public and local versions)
+3. Update the kubeconfig Secret in the cluster (with both `kubeconfig` and `kubeconfig-local` keys)
 4. Preserve the kubectl wrapper script
 
 This ensures continuous access without manual intervention, while maintaining shorter-lived tokens for better security.
@@ -297,8 +300,8 @@ The publish initContainer creates a convenient kubectl wrapper script at `~/bin/
 kubectl-acme-corp-prod-cluster get nodes
 kubectl-acme-corp-prod-cluster get pods -A
 
-# The wrapper automatically uses the correct kubeconfig
-# Equivalent to: kubectl --kubeconfig kubeconfigs/config-acme-corp-prod-cluster get nodes
+# The wrapper automatically uses the public kubeconfig
+# Equivalent to: kubectl --kubeconfig kubeconfigs/acme-corp-prod-cluster.yaml get nodes
 ```
 
 Add `~/bin` to your PATH to use these wrappers conveniently:
