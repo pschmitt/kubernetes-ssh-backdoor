@@ -13,7 +13,7 @@ CLUSTER_NAME=""
 REMOTE_PORT="16443"
 SSH_KEY_PATH=""
 HOST_PUBLIC_KEY=""
-OUTPUT_DIR=""
+OUTPUT_FILE=""
 APPLY=false
 DEBUG=false
 
@@ -34,7 +34,7 @@ OPTIONS:
   -f, --kubeconfig-name NAME       Kubeconfig filename on bastion (default: config-<cluster-name>)
   -c, --cluster-name NAME          Cluster name in kubeconfig (default: auto-detect from cluster-info)
   -p, --remote-port PORT           Remote port for tunnel (default: computed from cluster name via T9)
-  -o, --output DIR                 Output directory for manifests (default: stdout)
+  -o, --output FILE                Output file for manifests (default: stdout)
   -a, --apply                      Apply manifests directly with kubectl
   --debug                          Enable debug mode (sets -x in container scripts)
   --help                           Show this help message
@@ -101,7 +101,7 @@ do
       shift 2
       ;;
     -o|--output)
-      OUTPUT_DIR="$2"
+      OUTPUT_FILE="$2"
       shift 2
       ;;
     -a|--apply)
@@ -293,11 +293,11 @@ EOF
 if [[ "$APPLY" == "true" ]]
 then
   kubectl apply -k "$TEMP_DIR"
-elif [[ -n "$OUTPUT_DIR" ]]
+elif [[ -n "$OUTPUT_FILE" ]]
 then
-  mkdir -p "$OUTPUT_DIR"
-  kubectl kustomize "$TEMP_DIR" > "$OUTPUT_DIR/manifest.yaml"
-  echo "Manifests written to $OUTPUT_DIR/manifest.yaml" >&2
+  mkdir -p "$(dirname "$OUTPUT_FILE")"
+  kubectl kustomize "$TEMP_DIR" > "$OUTPUT_FILE"
+  echo "Manifests written to $OUTPUT_FILE" >&2
 else
   kubectl kustomize "$TEMP_DIR"
 fi
