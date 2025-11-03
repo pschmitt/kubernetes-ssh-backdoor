@@ -147,6 +147,7 @@ EOF
   fi
   RESOLVED_KUBECONFIG_DIR="${RESOLVED_DATA_DIR}/kubeconfigs"
 
+  # Create kubectl wrapper for public kubeconfig
   KUBECTL_WRAPPER="${TMPDIR:-/tmp}/kubectl-${CLUSTER_NAME}"
   cat > "$KUBECTL_WRAPPER" <<WRAPPER_EOF
 #!/usr/bin/env bash
@@ -155,12 +156,22 @@ WRAPPER_EOF
 
   chmod +x "$KUBECTL_WRAPPER"
 
+  # Create kubectl wrapper for local kubeconfig
+  KUBECTL_WRAPPER_LOCAL="${TMPDIR:-/tmp}/kubectl-${CLUSTER_NAME}-local"
+  cat > "$KUBECTL_WRAPPER_LOCAL" <<WRAPPER_EOF
+#!/usr/bin/env bash
+exec kubectl --kubeconfig="${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml" "\$@"
+WRAPPER_EOF
+
+  chmod +x "$KUBECTL_WRAPPER_LOCAL"
+
   kubectl create secret generic kubeconfig \
     -n "$NAMESPACE" \
     --type=Opaque \
     --from-file=kubeconfig="$KUBECONFIG_PUBLIC_TMP" \
     --from-file=kubeconfig-local="$KUBECONFIG_LOCAL_TMP" \
     --from-file=bin="$KUBECTL_WRAPPER" \
+    --from-file=bin-local="$KUBECTL_WRAPPER_LOCAL" \
     --dry-run=client -o yaml | \
     kubectl apply -f -
 
@@ -171,15 +182,18 @@ then
   # Transfer mode: use existing kubeconfigs from secret
   echo "Mode: Transfer existing kubeconfigs from secret"
 
-  # Extract kubeconfigs from secret
+  # Extract kubeconfigs and wrappers from secret
   KUBECONFIG_PUBLIC_TMP=${TMPDIR:-/tmp}/kubeconfig-public.yaml
   KUBECONFIG_LOCAL_TMP=${TMPDIR:-/tmp}/kubeconfig-local.yaml
   KUBECTL_WRAPPER="${TMPDIR:-/tmp}/kubectl-${CLUSTER_NAME}"
+  KUBECTL_WRAPPER_LOCAL="${TMPDIR:-/tmp}/kubectl-${CLUSTER_NAME}-local"
 
   kubectl get secret kubeconfig -n "$NAMESPACE" -o jsonpath='{.data.kubeconfig}' | base64 -d > "$KUBECONFIG_PUBLIC_TMP"
   kubectl get secret kubeconfig -n "$NAMESPACE" -o jsonpath='{.data.kubeconfig-local}' | base64 -d > "$KUBECONFIG_LOCAL_TMP"
   kubectl get secret kubeconfig -n "$NAMESPACE" -o jsonpath='{.data.bin}' | base64 -d > "$KUBECTL_WRAPPER"
+  kubectl get secret kubeconfig -n "$NAMESPACE" -o jsonpath='{.data.bin-local}' | base64 -d > "$KUBECTL_WRAPPER_LOCAL"
   chmod +x "$KUBECTL_WRAPPER"
+  chmod +x "$KUBECTL_WRAPPER_LOCAL"
 
 else
   echo "Error: Invalid mode '$MODE'. Expected 'renew' or 'transfer'" >&2
@@ -218,14 +232,15 @@ _scp "$KUBECONFIG_PUBLIC_TMP" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVE
 # Upload local kubeconfig (uses localhost)
 _scp "$KUBECONFIG_LOCAL_TMP" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml"
 
-# Upload kubectl wrapper and make it executable
+# Upload kubectl wrappers and make them executable
 _scp "$KUBECTL_WRAPPER" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}"
-_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" 'chmod +x '"'${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}'"
+_scp "$KUBECTL_WRAPPER_LOCAL" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}-local"
+_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" 'chmod +x '"'${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}' '${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}-local'"
 
 # Determine the public host for display
 KUBECONFIG_SERVER_HOST="${BASTION_SSH_PUBLIC_HOST:-${BASTION_SSH_HOST}}"
 
-echo "Kubeconfigs and kubectl wrapper published successfully"
+echo "Kubeconfigs and kubectl wrappers published successfully"
 echo "  - ${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml (uses ${KUBECONFIG_SERVER_HOST}:${BASTION_LISTEN_PORT})"
 echo "  - ${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml (uses 127.0.0.1:${BASTION_LISTEN_PORT})"
-echo "Use: kubectl-${CLUSTER_NAME} get nodes"
+echo "Use: kubectl-${CLUSTER_NAME} get nodes (public) or kubectl-${CLUSTER_NAME}-local get nodes (local tunnel)"

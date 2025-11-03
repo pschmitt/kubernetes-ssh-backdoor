@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 set -eu
 
@@ -7,9 +7,9 @@ then
   set -x
 fi
 
-# This script only transfers kubeconfig files from /kubeconfig volume to bastion
-# It does NOT create new tokens or interact with Kubernetes
-# Designed to work in the ssh container which doesn't have kubectl
+# This script transfers kubeconfig files from Kubernetes secret to bastion
+# It retrieves the secret dynamically using kubectl
+# Designed to work in containers with kubectl available
 
 # Setup SSH - use HOME if set, fallback to /config
 SSH_DIR="${HOME:-/config}/.ssh"
@@ -81,21 +81,57 @@ echo "  Bin dir: ${RESOLVED_BIN_DIR}"
 # Create directories on remote host
 _ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" "mkdir -p '${RESOLVED_DATA_DIR}' '${RESOLVED_KUBECONFIG_DIR}' '${RESOLVED_BIN_DIR}'"
 
-# Check if kubeconfig files exist in the mounted volume
-if [ ! -f /kubeconfig/kubeconfig ] || [ ! -f /kubeconfig/kubeconfig-local ] || [ ! -f /kubeconfig/bin ]; then
-  echo "Warning: Kubeconfig files not found in /kubeconfig volume"
-  echo "This is expected on first run - initContainer will create them"
+# Check if secret exists
+if ! kubectl get secret kubeconfig -n "$NAMESPACE" >/dev/null 2>&1; then
+  echo "Warning: kubeconfig secret not found in namespace $NAMESPACE"
+  echo "This is expected on first run - initContainer will create it"
   exit 0
 fi
 
-# Upload kubeconfig files from the mounted secret volume
+# Extract kubeconfig files from secret dynamically
+TEMP_DIR="${TMPDIR:-/tmp}/kubeconfig-$$"
+mkdir -p "$TEMP_DIR"
+
+echo "Retrieving kubeconfig files from secret..."
+kubectl get secret kubeconfig -n "$NAMESPACE" -o jsonpath='{.data.kubeconfig}' | base64 -d > "$TEMP_DIR/kubeconfig" || {
+  echo "Warning: Could not retrieve kubeconfig from secret"
+  rm -rf "$TEMP_DIR"
+  exit 0
+}
+
+kubectl get secret kubeconfig -n "$NAMESPACE" -o jsonpath='{.data.kubeconfig-local}' | base64 -d > "$TEMP_DIR/kubeconfig-local" || {
+  echo "Warning: Could not retrieve kubeconfig-local from secret"
+  rm -rf "$TEMP_DIR"
+  exit 0
+}
+
+kubectl get secret kubeconfig -n "$NAMESPACE" -o jsonpath='{.data.bin}' | base64 -d > "$TEMP_DIR/bin" || {
+  echo "Warning: Could not retrieve bin from secret"
+  rm -rf "$TEMP_DIR"
+  exit 0
+}
+
+kubectl get secret kubeconfig -n "$NAMESPACE" -o jsonpath='{.data.bin-local}' | base64 -d > "$TEMP_DIR/bin-local" || {
+  echo "Warning: Could not retrieve bin-local from secret"
+  rm -rf "$TEMP_DIR"
+  exit 0
+}
+
+chmod +x "$TEMP_DIR/bin" "$TEMP_DIR/bin-local"
+
+# Upload kubeconfig files to bastion
 echo "Transferring kubeconfig files to bastion..."
-_scp /kubeconfig/kubeconfig "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml"
-_scp /kubeconfig/kubeconfig-local "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml"
-_scp /kubeconfig/bin "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}"
-_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" "chmod +x '${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}'"
+_scp "$TEMP_DIR/kubeconfig" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml"
+_scp "$TEMP_DIR/kubeconfig-local" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml"
+_scp "$TEMP_DIR/bin" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}"
+_scp "$TEMP_DIR/bin-local" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}-local"
+_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" "chmod +x '${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}' '${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}-local'"
+
+# Cleanup
+rm -rf "$TEMP_DIR"
 
 echo "Kubeconfig files transferred successfully"
 echo "  - ${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml"
 echo "  - ${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml"
 echo "  - ${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}"
+echo "  - ${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}-local"
