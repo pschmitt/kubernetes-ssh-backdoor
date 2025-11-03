@@ -64,8 +64,8 @@ BASTION_SSH_PORT="22"
 BASTION_SSH_USER="k8s-backdoor"
 BASTION_DATA_DIR="k8s-backdoor"
 CLUSTER_NAME=""
-REMOTE_PORT="16443"
-REMOTE_LISTEN_ADDR="127.0.0.1"
+BASTION_LISTEN_PORT="16443"
+BASTION_LISTEN_ADDR="127.0.0.1"
 TOKEN_LIFETIME="720h"
 TOKEN_RENEWAL_INTERVAL="0 3 * * *"
 SSH_KEY_PATH=""
@@ -165,11 +165,11 @@ do
       shift 2
       ;;
     -R|--remote-port)
-      REMOTE_PORT="$2"
+      BASTION_LISTEN_PORT="$2"
       shift 2
       ;;
     -a|--addr)
-      REMOTE_LISTEN_ADDR="$2"
+      BASTION_LISTEN_ADDR="$2"
       shift 2
       ;;
     -t|--token-lifetime)
@@ -212,7 +212,7 @@ do
       shift
       ;;
     --yolo)
-      REMOTE_LISTEN_ADDR="0.0.0.0"
+      BASTION_LISTEN_ADDR="0.0.0.0"
       TOKEN_LIFETIME="$(convert_duration_to_hours "10y")"
       APPLY=1
       RESTART=1
@@ -293,7 +293,7 @@ then
 fi
 
 # Compute remote port from cluster name if not explicitly provided
-if [[ "$REMOTE_PORT" == "16443" ]] && [[ -n "$CLUSTER_NAME" ]]
+if [[ "$BASTION_LISTEN_PORT" == "16443" ]] && [[ -n "$CLUSTER_NAME" ]]
 then
   # Compute hash-based port to avoid collisions
   # Use MD5 hash, convert first 8 hex chars to decimal, then map to port range 10000-65535
@@ -301,9 +301,9 @@ then
   hash_decimal=$((16#$hash))
 
   # Map to port range 10000-65535 (55536 ports available)
-  REMOTE_PORT=$((10000 + (hash_decimal % 55536)))
+  BASTION_LISTEN_PORT=$((10000 + (hash_decimal % 55536)))
 
-  echo_info "Computed remote port from cluster name: ${BOLD_YELLOW}${REMOTE_PORT}${RESET}"
+  echo_info "Computed remote port from cluster name: ${BOLD_YELLOW}${BASTION_LISTEN_PORT}${RESET}"
 fi
 
 # Log configuration summary
@@ -313,7 +313,7 @@ echo_info "Namespace             ${BOLD_YELLOW}${NAMESPACE}${RESET}"
 echo_info "Bastion host          ${BOLD_YELLOW}${BASTION_SSH_USER}${RESET}@${BOLD_YELLOW}${BASTION_SSH_HOST}${RESET}:${BOLD_YELLOW}${BASTION_SSH_PORT}${RESET}"
 echo_info "SSH host key          ${BOLD_YELLOW}${BASTION_SSH_HOST_KEY}${RESET}"
 echo_info "SSH private key       ${BOLD_YELLOW}${SSH_KEY_PATH}${RESET} [${BOLD_YELLOW}${SSH_PUBLIC_KEY}${RESET}]"
-echo_info "Remote listen addr    ${BOLD_YELLOW}${REMOTE_LISTEN_ADDR}${RESET}:${BOLD_YELLOW}${REMOTE_PORT}${RESET}"
+echo_info "Remote listen addr    ${BOLD_YELLOW}${BASTION_LISTEN_ADDR}${RESET}:${BOLD_YELLOW}${BASTION_LISTEN_PORT}${RESET}"
 echo_info "Data directory        ${BOLD_YELLOW}${BASTION_DATA_DIR}${RESET}"
 echo_info "Kubeconfig paths      ${BOLD_YELLOW}${BASTION_DATA_DIR}/kubeconfigs/${CLUSTER_NAME}.yaml${RESET} and ${BOLD_YELLOW}${BASTION_DATA_DIR}/kubeconfigs/${CLUSTER_NAME}-local.yaml${RESET}"
 echo_info "Token lifetime        ${BOLD_YELLOW}${TOKEN_LIFETIME}${RESET} (renewal interval: ${BOLD_YELLOW}${TOKEN_RENEWAL_INTERVAL}${RESET})"
@@ -341,8 +341,8 @@ export BASTION_SSH_USER
 export CLUSTER_NAME
 export DEBUG
 export NAMESPACE
-export REMOTE_PORT
-export REMOTE_LISTEN_ADDR
+export BASTION_LISTEN_PORT
+export BASTION_LISTEN_ADDR
 export TOKEN_LIFETIME
 export TOKEN_RENEWAL_INTERVAL
 

@@ -83,7 +83,7 @@ clusters:
 - name: ${CLUSTER_NAME}-backdoor
   cluster:
     certificate-authority-data: ${CA_B64}
-    server: https://${KUBECONFIG_SERVER_HOST}:${REMOTE_PORT}
+    server: https://${KUBECONFIG_SERVER_HOST}:${BASTION_LISTEN_PORT}
     tls-server-name: kubernetes.default.svc
 users:
 - name: breakglass-admin-${CLUSTER_NAME}
@@ -106,7 +106,7 @@ clusters:
 - name: ${CLUSTER_NAME}-backdoor
   cluster:
     certificate-authority-data: ${CA_B64}
-    server: https://127.0.0.1:${REMOTE_PORT}
+    server: https://127.0.0.1:${BASTION_LISTEN_PORT}
     tls-server-name: kubernetes.default.svc
 users:
 - name: breakglass-admin-${CLUSTER_NAME}
@@ -158,8 +158,8 @@ _scp "$KUBECTL_WRAPPER" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_BIN_
 _ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" 'chmod +x '"'${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}'"
 
 echo "Kubeconfigs and kubectl wrapper published successfully"
-echo "  - ${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml (uses ${KUBECONFIG_SERVER_HOST}:${REMOTE_PORT})"
-echo "  - ${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml (uses 127.0.0.1:${REMOTE_PORT})"
+echo "  - ${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml (uses ${KUBECONFIG_SERVER_HOST}:${BASTION_LISTEN_PORT})"
+echo "  - ${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml (uses 127.0.0.1:${BASTION_LISTEN_PORT})"
 echo "Use: kubectl-${CLUSTER_NAME} get nodes"
 
 # Update kubeconfig secret with both versions

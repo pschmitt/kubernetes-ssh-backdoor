@@ -47,7 +47,7 @@ while true
 do
   echo "Starting SSH tunnel to ${BASTION_SSH_HOST}:${BASTION_SSH_PORT}..."
   _ssh -N \
-    -R "${REMOTE_LISTEN_ADDR}:${REMOTE_PORT}:kubernetes.default.svc:443" \
+    -R "${BASTION_LISTEN_ADDR}:${BASTION_LISTEN_PORT}:kubernetes.default.svc:443" \
     "${BASTION_SSH_USER}@${BASTION_SSH_HOST}"
 
   EXIT_CODE=$?

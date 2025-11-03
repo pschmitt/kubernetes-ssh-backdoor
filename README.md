@@ -207,7 +207,7 @@ The deployment consists of:
 
 The tunnel uses a simple `while true` loop with `ssh -N` for reliability. If the connection drops, it automatically reconnects after a 5-second delay.
 
-The tunnel exposes the Kubernetes API server on the bastion host at `127.0.0.1:<REMOTE_PORT>` by default.
+The tunnel exposes the Kubernetes API server on the bastion host at `127.0.0.1:<BASTION_LISTEN_PORT>` by default.
 
 ### Remote Listen Address
 

@@ -7,7 +7,7 @@ BASTION_SSH_HOST="bastion.example.com"
 SSH_KEY_PATH="$HOME/.ssh/id_ed25519"
 NAMESPACE="backdoor"
 CLUSTER_NAME="production"
-REMOTE_PORT="6443"
+BASTION_LISTEN_PORT="6443"
 BASTION_SSH_USER="tunnel"
 
 # Build and apply (host key will be auto-fetched)
@@ -16,7 +16,7 @@ BASTION_SSH_USER="tunnel"
   --identity "$SSH_KEY_PATH" \
   --namespace "$NAMESPACE" \
   --cluster-name "$CLUSTER_NAME" \
-  --port "$REMOTE_PORT" \
+  --port "$BASTION_LISTEN_PORT" \
   --user "$BASTION_SSH_USER" \
   --apply
 
@@ -26,7 +26,7 @@ BASTION_SSH_USER="tunnel"
 #   --identity "$SSH_KEY_PATH" \
 #   --namespace "$NAMESPACE" \
 #   --cluster-name "$CLUSTER_NAME" \
-#   --port "$REMOTE_PORT" \
+#   --port "$BASTION_LISTEN_PORT" \
 #   --user "$BASTION_SSH_USER" \
 #   --output ./output
 
@@ -43,6 +43,6 @@ BASTION_SSH_USER="tunnel"
 #   --host-key "$HOST_KEY" \
 #   --namespace "$NAMESPACE" \
 #   --cluster-name "$CLUSTER_NAME" \
-#   --port "$REMOTE_PORT" \
+#   --port "$BASTION_LISTEN_PORT" \
 #   --user "$BASTION_SSH_USER" \
 #   --apply
