@@ -125,7 +125,7 @@ EOF
 REMOTE_HOME=$(_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" 'echo "$HOME"')
 
 # Construct absolute paths - handle both absolute and relative paths
-if [[ "${BASTION_DATA_DIR}" == /* ]]
+if [ "${BASTION_DATA_DIR#/}" != "${BASTION_DATA_DIR}" ]
 then
   # Absolute path - use as is
   RESOLVED_DATA_DIR="${BASTION_DATA_DIR}"
