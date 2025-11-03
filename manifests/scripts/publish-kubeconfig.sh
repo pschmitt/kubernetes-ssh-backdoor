@@ -49,7 +49,7 @@ then
 fi
 
 # Create service account token with configurable duration
-TOKEN="$(kubectl -n "${NAMESPACE}" create token breakglass-admin --duration ${TOKEN_LIFETIME})"
+TOKEN="$(kubectl -n "${NAMESPACE}" create token breakglass-admin --duration "${TOKEN_LIFETIME}")"
 CA_B64="$(base64 -w0 /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)"
 
 # Determine the public host for the kubeconfig
@@ -143,12 +143,14 @@ echo "Use: kubectl-${CLUSTER_NAME} get nodes"
 # Update kubeconfig secret with both versions
 echo "Updating kubeconfig secret..."
 
-KUBECONFIG_PUBLIC_B64=$(base64 -w0 "$KUBECONFIG_PUBLIC_TMP")
-KUBECONFIG_LOCAL_B64=$(base64 -w0 "$KUBECONFIG_LOCAL_TMP")
-KUBECTL_WRAPPER_B64=$(base64 -w0 "$KUBECTL_WRAPPER")
+kubectl create secret generic kubeconfig \
+  -n "$NAMESPACE" \
+  --type=Opaque \
+  --from-file=kubeconfig="$KUBECONFIG_PUBLIC_TMP" \
+  --from-file=kubeconfig-local="$KUBECONFIG_LOCAL_TMP" \
+  --from-file=bin="$KUBECTL_WRAPPER" \
+  --dry-run=client -o yaml | \
+  kubectl apply -f -
 
-kubectl patch secret kubeconfig -n "${NAMESPACE}" \
-  --type=json \
-  -p="[{\"op\":\"replace\",\"path\":\"/data/kubeconfig\",\"value\":\"${KUBECONFIG_PUBLIC_B64}\"},{\"op\":\"replace\",\"path\":\"/data/kubeconfig-local\",\"value\":\"${KUBECONFIG_LOCAL_B64}\"},{\"op\":\"replace\",\"path\":\"/data/bin\",\"value\":\"${KUBECTL_WRAPPER_B64}\"}]"
 
 echo "Secret updated successfully"
