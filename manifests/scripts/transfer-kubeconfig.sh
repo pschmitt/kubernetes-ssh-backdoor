@@ -56,6 +56,37 @@ _scp() {
   command scp $SCP_OPTS "$@"
 }
 
+# Wait for SSH service to be available
+wait_for_ssh() {
+  local max_attempts=30
+  local attempt=1
+  local wait_time=2
+
+  echo "Waiting for SSH service at ${BASTION_SSH_HOST}:${BASTION_SSH_PORT}..."
+
+  while [ $attempt -le $max_attempts ]; do
+    # Use a simple connection test with short timeout
+    # shellcheck disable=SC2086
+    if ssh $SSH_OPTS -o ConnectTimeout=5 "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" "exit 0" 2>/dev/null; then
+      echo "SSH service is ready (attempt $attempt)"
+      return 0
+    fi
+
+    echo "SSH not ready yet (attempt $attempt/$max_attempts), waiting ${wait_time}s..."
+    sleep $wait_time
+    attempt=$((attempt + 1))
+  done
+
+  echo "ERROR: SSH service did not become available after $max_attempts attempts"
+  return 1
+}
+
+# Check SSH connectivity before proceeding
+if ! wait_for_ssh; then
+  echo "Failed to connect to SSH service, aborting transfer"
+  exit 1
+fi
+
 # Get remote home directory
 # shellcheck disable=SC2016
 REMOTE_HOME=$(_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" 'echo "$HOME"')
