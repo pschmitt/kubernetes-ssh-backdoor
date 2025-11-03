@@ -88,7 +88,7 @@ OPTIONS:
   -P, --public-host PUBLIC_HOST        Public hostname for kubeconfig (default: same as --host)
   -P, --port BASTION_SSH_PORT          SSH port on bastion host (default: 22)
   -i, --identity SSH_KEY_PATH          Path to SSH private key (required)
-  -k, --host-key BASTION_SSH_HOST_KEY  SSH host public key (default: auto-fetch with ssh-keyscan)
+  -k, --host-key BASTION_SSH_HOST_KEY  SSH host public key (optional, disables strict checking if not provided)
   -n, --namespace NAMESPACE            Kubernetes namespace (default: backdoor)
   -u, --user BASTION_SSH_USER          SSH user on bastion (default: k8s-backdoor)
   -d, --kubeconfig-dir DIR             Kubeconfig directory on bastion (default: kubeconfigs)
@@ -106,7 +106,7 @@ OPTIONS:
   -h, --help                           Show this help message
 
 EXAMPLES:
-  # Generate manifests to stdout (host key auto-fetched)
+  # Generate manifests to stdout (without host key - verification disabled)
   $0 --host bastion.example.com -i ~/.ssh/id_ed25519
 
   # Generate manifests to directory
@@ -118,7 +118,7 @@ EXAMPLES:
   # Delete from cluster
   $0 --host bastion.example.com -i ~/.ssh/id_ed25519 --delete
 
-  # Provide host key manually for security
+  # Provide host key for security
   $0 --host bastion.example.com -i ~/.ssh/id_ed25519 -k "\$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)" --apply
 
 EOF
@@ -260,17 +260,8 @@ fi
 # Auto-fetch host key if not provided
 if [[ -z "$BASTION_SSH_HOST_KEY" ]]
 then
-  echo_info "Fetching SSH host key for ${BOLD_YELLOW}${BASTION_SSH_HOST}:${BASTION_SSH_PORT}${RESET}..."
-  BASTION_SSH_HOST_KEY=$(ssh-keyscan -p "$BASTION_SSH_PORT" -t ed25519 "$BASTION_SSH_HOST" 2>/dev/null | grep -v "^#")
-
-  if [[ -z "$BASTION_SSH_HOST_KEY" ]]
-  then
-    echo "Error: Failed to fetch host key from $BASTION_SSH_HOST:$BASTION_SSH_PORT" >&2
-    echo "You can manually provide it with: --host-key 'HOSTNAME ssh-ed25519 AAAA...'" >&2
-    exit 1
-  fi
-
-  echo_success "Successfully fetched host key"
+  echo_warning "No SSH host key provided - host key verification will be disabled"
+  echo_warning "For better security, consider using: --host-key \"\$(ssh-keyscan -t ed25519 $BASTION_SSH_HOST 2>/dev/null)\""
 fi
 
 # Build kubectl command with optional context
