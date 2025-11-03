@@ -46,7 +46,7 @@ _ssh() {
 while true
 do
   echo "Re-transferring kubeconfig before establishing tunnel..."
-  /bin/sh /scripts/kubeconfig-manager.sh transfer || echo "Warning: Failed to transfer kubeconfig"
+  /bin/sh /scripts/transfer-kubeconfig.sh || echo "Warning: Failed to transfer kubeconfig"
 
   echo "Starting SSH tunnel to ${BASTION_SSH_HOST}:${BASTION_SSH_PORT}..."
   _ssh -N \

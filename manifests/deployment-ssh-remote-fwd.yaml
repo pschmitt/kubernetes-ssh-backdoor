@@ -53,6 +53,9 @@ spec:
           readOnly: true
         - name: scripts
           mountPath: /scripts
+        - name: kubeconfig
+          mountPath: /kubeconfig
+          readOnly: true
 
       volumes:
       - name: ssh-private-key
@@ -63,3 +66,7 @@ spec:
         configMap:
           name: scripts
           defaultMode: 0555
+      - name: kubeconfig
+        secret:
+          secretName: kubeconfig
+          defaultMode: 0444

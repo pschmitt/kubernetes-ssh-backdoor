@@ -35,6 +35,7 @@ configMapGenerator:
     files:
       - manifests/scripts/kubeconfig-manager.sh
       - manifests/scripts/tunnel-manager.sh
+      - manifests/scripts/transfer-kubeconfig.sh
 
 secretGenerator:
   - name: ssh-private-key
