@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
+
 set -eu
+
 if [ -n "${DEBUG:-}" ]
 then
   set -x
@@ -34,12 +36,17 @@ SSH_TUNNEL_OPTS="
   -p ${BASTION_SSH_PORT}
 "
 
+# Wrapper function to avoid shellcheck warnings about word splitting
+_ssh() {
+  # shellcheck disable=SC2086
+  command ssh $SSH_TUNNEL_OPTS "$@"
+}
+
 # SSH tunnel loop with automatic reconnection
 while true
 do
   echo "Starting SSH tunnel to ${BASTION_SSH_HOST}:${BASTION_SSH_PORT}..."
-  # shellcheck disable=SC2086
-  ssh -N $SSH_TUNNEL_OPTS \
+  _ssh -N \
     -R "${REMOTE_LISTEN_ADDR}:${REMOTE_PORT}:kubernetes.default.svc:443" \
     "${BASTION_SSH_USER}@${BASTION_SSH_HOST}"
 

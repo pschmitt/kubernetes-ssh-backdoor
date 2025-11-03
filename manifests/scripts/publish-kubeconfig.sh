@@ -40,6 +40,17 @@ SCP_OPTS="
   -P ${BASTION_SSH_PORT}
 "
 
+# Wrapper functions to avoid shellcheck warnings about word splitting
+_ssh() {
+  # shellcheck disable=SC2086
+  command ssh $SSH_OPTS "$@"
+}
+
+_scp() {
+  # shellcheck disable=SC2086
+  command scp $SCP_OPTS "$@"
+}
+
 # Auto-detect cluster name if not provided
 if [ -z "${CLUSTER_NAME}" ] || [ "${CLUSTER_NAME}" = "" ]
 then
@@ -110,8 +121,9 @@ current-context: ${CLUSTER_NAME}-backdoor
 EOF
 
 # Resolve remote paths to absolute paths in a single SSH call
-# shellcheck disable=SC2086
-IFS=' ' read -r REMOTE_HOME RESOLVED_KUBECONFIG_DIR RESOLVED_BIN_DIR < <(ssh $SSH_OPTS "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
+# SC2016: The mix of single/double quotes is intentional - $HOME expands remotely, ${BASTION_KUBECONFIG_DIR} locally
+# shellcheck disable=SC2016
+IFS=' ' read -r REMOTE_HOME RESOLVED_KUBECONFIG_DIR RESOLVED_BIN_DIR < <(_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
     'echo "$HOME" && mkdir -p '"'${BASTION_KUBECONFIG_DIR}'"' "$HOME/bin" && readlink -f '"'${BASTION_KUBECONFIG_DIR}'"' && readlink -f "$HOME/bin"')
 
 echo "Resolved remote paths:"
@@ -129,18 +141,14 @@ WRAPPER_EOF
 chmod +x "$KUBECTL_WRAPPER"
 
 # Upload public kubeconfig (uses public hostname)
-# shellcheck disable=SC2086
-scp $SCP_OPTS "$KUBECONFIG_PUBLIC_TMP" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml"
+_scp "$KUBECONFIG_PUBLIC_TMP" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml"
 
 # Upload local kubeconfig (uses localhost)
-# shellcheck disable=SC2086
-scp $SCP_OPTS "$KUBECONFIG_LOCAL_TMP" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml"
+_scp "$KUBECONFIG_LOCAL_TMP" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml"
 
 # Upload kubectl wrapper and make it executable
-# shellcheck disable=SC2086
-scp $SCP_OPTS "$KUBECTL_WRAPPER" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}"
-# shellcheck disable=SC2086
-ssh $SSH_OPTS "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" 'chmod +x '"'${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}'"
+_scp "$KUBECTL_WRAPPER" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}"
+_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" 'chmod +x '"'${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}'"
 
 echo "Kubeconfigs and kubectl wrapper published successfully"
 echo "  - ${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml (uses ${KUBECONFIG_SERVER_HOST}:${REMOTE_PORT})"
