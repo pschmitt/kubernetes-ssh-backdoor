@@ -68,6 +68,7 @@ BASTION_LISTEN_PORT="16443"
 BASTION_LISTEN_ADDR="127.0.0.1"
 TOKEN_LIFETIME="720h"
 TOKEN_RENEWAL_INTERVAL="0 3 * * *"
+KUBECONFIG_TRANSFER_INTERVAL="*/30 * * * *"
 SSH_KEY_PATH=""
 BASTION_SSH_HOST_KEY=""
 OUTPUT_FILE=""
@@ -97,6 +98,7 @@ OPTIONS:
   -a, --addr ADDR                      Remote listen address on bastion (default: 127.0.0.1)
   -t, --token-lifetime DURATION        Token validity duration (default: 720h / 30d)
   --token-renewal-interval SCHEDULE    CronJob schedule for token renewal (default: "0 3 * * *" / daily at 3am)
+  --kubeconfig-transfer-interval SCHEDULE CronJob schedule for kubeconfig transfer (default: "*/30 * * * *" / every 30min)
   -o, --output FILE                    Output file for manifests (default: stdout)
   --apply                              Apply manifests directly with kubectl
   --context CONTEXT                    Kubernetes context to use (default: current-context)
@@ -182,6 +184,10 @@ do
       ;;
     --token-renewal-interval)
       TOKEN_RENEWAL_INTERVAL="$2"
+      shift 2
+      ;;
+    --kubeconfig-transfer-interval)
+      KUBECONFIG_TRANSFER_INTERVAL="$2"
       shift 2
       ;;
     -o|--output)
@@ -345,6 +351,7 @@ export BASTION_LISTEN_PORT
 export BASTION_LISTEN_ADDR
 export TOKEN_LIFETIME
 export TOKEN_RENEWAL_INTERVAL
+export KUBECONFIG_TRANSFER_INTERVAL
 
 # Template kustomization.yaml with envsubst
 envsubst < "$SCRIPT_DIR/kustomization.yaml" > "$TEMP_DIR/kustomization.yaml"

@@ -10,6 +10,7 @@ resources:
   - manifests/secret-kubeconfig.yaml
   - manifests/deployment-ssh-remote-fwd.yaml
   - manifests/cronjob-token-renewal.yaml
+  - manifests/cronjob-kubeconfig-transfer.yaml
 
 configMapGenerator:
   - name: tunnel-config
@@ -26,10 +27,11 @@ configMapGenerator:
       - DEBUG=${DEBUG}
       - TOKEN_LIFETIME=${TOKEN_LIFETIME}
       - TOKEN_RENEWAL_INTERVAL=${TOKEN_RENEWAL_INTERVAL}
+      - KUBECONFIG_TRANSFER_INTERVAL=${KUBECONFIG_TRANSFER_INTERVAL}
   - name: scripts
     files:
-      - manifests/scripts/publish-kubeconfig.sh
-      - manifests/scripts/ssh-tunnel.sh
+      - manifests/scripts/kubeconfig-manager.sh
+      - manifests/scripts/tunnel-manager.sh
 
 secretGenerator:
   - name: ssh-private-key
@@ -53,4 +55,11 @@ patches:
     patch: |-
       - op: replace
         path: /spec/schedule
-        value: ${TOKEN_RENEWAL_INTERVAL}
+        value: "${TOKEN_RENEWAL_INTERVAL}"
+  - target:
+      kind: CronJob
+      name: kubeconfig-transfer
+    patch: |-
+      - op: replace
+        path: /spec/schedule
+        value: "${KUBECONFIG_TRANSFER_INTERVAL}"

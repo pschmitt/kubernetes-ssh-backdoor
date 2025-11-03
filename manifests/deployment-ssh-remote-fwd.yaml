@@ -20,7 +20,7 @@ spec:
       initContainers:
       - name: kubeconfig-tx
         image: pschmitt/debug:latest
-        command: ["/bin/sh", "/scripts/publish-kubeconfig.sh"]
+        command: ["/bin/sh", "/scripts/kubeconfig-manager.sh", "renew"]
         env:
         - name: NAMESPACE
           valueFrom:
@@ -39,7 +39,7 @@ spec:
       containers:
       - name: ssh-remote-fwd
         image: pschmitt/ssh:latest
-        command: ["/bin/sh", "/scripts/ssh-tunnel.sh"]
+        command: ["/bin/sh", "/scripts/tunnel-manager.sh"]
         lifecycle:
           preStop:
             exec:
