@@ -71,6 +71,7 @@ TOKEN_RENEWAL_INTERVAL="0 3 * * *"
 KUBECONFIG_TRANSFER_INTERVAL="*/30 * * * *"
 SSH_KEY_PATH=""
 BASTION_SSH_HOST_KEY=""
+INSECURE=""
 OUTPUT_FILE=""
 APPLY=""
 DELETE=""
@@ -89,7 +90,8 @@ OPTIONS:
   -P, --public-host PUBLIC_HOST        Public hostname for kubeconfig (default: same as --host)
   -P, --port BASTION_SSH_PORT          SSH port on bastion host (default: 22)
   -i, --identity SSH_KEY_PATH          Path to SSH private key (required)
-  -k, --host-key BASTION_SSH_HOST_KEY  SSH host public key (optional, disables strict checking if not provided)
+  -k, --host-key BASTION_SSH_HOST_KEY  SSH host public key (optional, auto-fetched by default)
+  --insecure                           Disable SSH host key verification (not recommended)
   -n, --namespace NAMESPACE            Kubernetes namespace (default: backdoor)
   -u, --user BASTION_SSH_USER          SSH user on bastion (default: k8s-backdoor)
   -d, --data-dir DIR                   Data directory on bastion (default: k8s-backdoor)
@@ -103,12 +105,12 @@ OPTIONS:
   --apply                              Apply manifests directly with kubectl
   --context CONTEXT                    Kubernetes context to use (default: current-context)
   --delete                             Delete manifests from the current cluster with kubectl
-  --yolo                               Shorthand for --addr 0.0.0.0 --token-lifetime 10y --apply --restart
+  --yolo                               Shorthand for --addr 0.0.0.0 --token-lifetime 10y --apply --restart --insecure
   -D, --debug                          Enable debug mode (sets -x in container scripts)
   -h, --help                           Show this help message
 
 EXAMPLES:
-  # Generate manifests to stdout (without host key - verification disabled)
+  # Generate manifests to stdout (host key auto-fetched)
   $0 --host bastion.example.com -i ~/.ssh/id_ed25519
 
   # Generate manifests to directory
@@ -120,8 +122,11 @@ EXAMPLES:
   # Delete from cluster
   $0 --host bastion.example.com -i ~/.ssh/id_ed25519 --delete
 
-  # Provide host key for security
-  $0 --host bastion.example.com -i ~/.ssh/id_ed25519 -k "\$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)" --apply
+  # Provide host key manually
+  $0 --host bastion.example.com -i ~/.ssh/id_ed25519 -k "\$(ssh-keyscan -p 2222 bastion.example.com 2>/dev/null | grep ed25519)" --apply
+
+  # Disable host key verification (not recommended)
+  $0 --host bastion.example.com -i ~/.ssh/id_ed25519 --insecure --apply
 
 EOF
 }
@@ -149,6 +154,10 @@ do
     -k|--host-key)
       BASTION_SSH_HOST_KEY="$2"
       shift 2
+      ;;
+    --insecure)
+      INSECURE=1
+      shift
       ;;
     -n|--namespace)
       NAMESPACE="$2"
@@ -222,6 +231,7 @@ do
       TOKEN_LIFETIME="$(convert_duration_to_hours "10y")"
       APPLY=1
       RESTART=1
+      INSECURE=1
       shift
       ;;
     -h|--help)
@@ -263,11 +273,33 @@ then
   SSH_PUBLIC_KEY="<unable to derive>"
 fi
 
-# Auto-fetch host key if not provided
-if [[ -z "$BASTION_SSH_HOST_KEY" ]]
+# Auto-fetch host key if not provided and not insecure
+if [[ -z "$BASTION_SSH_HOST_KEY" ]] && [[ -z "$INSECURE" ]]
 then
-  echo_warning "No SSH host key provided - host key verification will be disabled"
-  echo_warning "For better security, consider using: --host-key \"\$(ssh-keyscan -t ed25519 $BASTION_SSH_HOST 2>/dev/null)\""
+  echo_info "Auto-fetching SSH host key from ${BOLD_YELLOW}${BASTION_SSH_HOST}${RESET}:${BOLD_YELLOW}${BASTION_SSH_PORT}${RESET}..."
+
+  # Try to fetch ed25519 key first (with 10s timeout), fallback to any key type
+  BASTION_SSH_HOST_KEY=$(timeout 10 ssh-keyscan -p "$BASTION_SSH_PORT" -t ed25519 "$BASTION_SSH_HOST" 2>/dev/null | grep -v '^#')
+
+  if [[ -z "$BASTION_SSH_HOST_KEY" ]]
+  then
+    # Fallback to any key type (with 10s timeout)
+    BASTION_SSH_HOST_KEY=$(timeout 10 ssh-keyscan -p "$BASTION_SSH_PORT" "$BASTION_SSH_HOST" 2>/dev/null | grep -v '^#' | head -1)
+  fi
+
+  if [[ -z "$BASTION_SSH_HOST_KEY" ]]
+  then
+    echo_error "Failed to fetch SSH host key from ${BASTION_SSH_HOST}:${BASTION_SSH_PORT}"
+    echo_error "Please verify the host is reachable or provide the key manually with --host-key"
+    echo_error "Or use --insecure to disable host key verification (not recommended)"
+    exit 1
+  else
+    echo_success "Successfully fetched SSH host key: ${BOLD_YELLOW}${BASTION_SSH_HOST_KEY}${RESET}"
+  fi
+elif [[ -z "$BASTION_SSH_HOST_KEY" ]] && [[ -n "$INSECURE" ]]
+then
+  echo_warning "SSH host key verification is disabled (--insecure mode)"
+  echo_warning "This is not recommended for production use"
 fi
 
 # Build kubectl command with optional context
