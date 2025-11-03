@@ -205,7 +205,9 @@ For example, if your cluster name is `acme-corp-prod-cluster`, the structure wil
 
 The `-local.yaml` version is useful when accessing from the bastion host itself, while the regular `.yaml` version is for accessing from machines that can reach the bastion.
 
-You can customize the base directory with `--data-dir` (e.g., `--data-dir my-clusters` will use `~/my-clusters/`)
+You can customize the base directory with `--data-dir`:
+- Relative paths (e.g., `--data-dir my-clusters`) resolve to `~/my-clusters/`
+- Absolute paths (e.g., `--data-dir /opt/k8s-backdoor`) are used as-is
 
 ## Architecture
 

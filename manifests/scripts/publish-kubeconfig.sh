@@ -124,8 +124,15 @@ EOF
 # shellcheck disable=SC2016
 REMOTE_HOME=$(_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" 'echo "$HOME"')
 
-# Construct absolute paths
-RESOLVED_DATA_DIR="${REMOTE_HOME}/${BASTION_DATA_DIR}"
+# Construct absolute paths - handle both absolute and relative paths
+if [[ "${BASTION_DATA_DIR}" = /* ]]
+then
+  # Absolute path - use as is
+  RESOLVED_DATA_DIR="${BASTION_DATA_DIR}"
+else
+  # Relative path - prepend home directory
+  RESOLVED_DATA_DIR="${REMOTE_HOME}/${BASTION_DATA_DIR}"
+fi
 RESOLVED_KUBECONFIG_DIR="${RESOLVED_DATA_DIR}/kubeconfigs"
 RESOLVED_BIN_DIR="${RESOLVED_DATA_DIR}/bin"
 
