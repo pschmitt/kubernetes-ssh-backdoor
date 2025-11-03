@@ -79,7 +79,7 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
 -k, --host-key BASTION_SSH_HOST_KEY  SSH host public key (default: auto-fetch with ssh-keyscan)
 -n, --namespace NAMESPACE            Kubernetes namespace (default: backdoor)
 -u, --user BASTION_SSH_USER          SSH user on bastion (default: k8s-backdoor)
--d, --kubeconfig-dir DIR             Kubeconfig directory on bastion (default: kubeconfigs)
+-d, --data-dir DIR                   Data directory on bastion (default: k8s-backdoor)
 -c, --cluster-name NAME              Cluster name in kubeconfig (default: auto-detect from cluster-info)
 -R, --remote-port PORT               Remote port for tunnel (default: computed from cluster name hash)
 -a, --addr ADDR                      Remote listen address on bastion (default: 127.0.0.1)
@@ -107,14 +107,13 @@ HOST_KEY=$(ssh-keyscan bastion.example.com 2>/dev/null | grep ed25519)
   --apply
 ```
 
-### Different SSH user and kubeconfig location
+### Different SSH user and data directory location
 ```bash
 ./backdoor.sh \
   --host bastion.example.com \
   --identity ~/.ssh/id_ed25519 \
   --user myuser \
-  --kubeconfig-dir "/home/myuser/kube-configs" \
-  --kubeconfig-name "prod-cluster.yaml" \
+  --data-dir "my-k8s-backdoors" \
   --apply
 ```
 
@@ -181,22 +180,32 @@ The cluster name is used to identify the cluster in the generated kubeconfig. Th
 
 This ensures unique and meaningful cluster names in your kubeconfig files.
 
-## Kubeconfig File Naming
+## File Structure on Bastion Host
 
-By default, two kubeconfig files are pushed to the bastion host in the `kubeconfigs/` directory:
+By default, files are organized under the `~/k8s-backdoor/` directory on the bastion host:
 
-1. **`kubeconfigs/<cluster-name>.yaml`** - Uses the public hostname (from `--public-host` or `--host`)
-2. **`kubeconfigs/<cluster-name>-local.yaml`** - Uses `127.0.0.1` (localhost)
-
-For example, if your cluster name is `acme-corp-prod-cluster`, the files will be:
 ```
-~/kubeconfigs/acme-corp-prod-cluster.yaml        # Uses bastion.example.com:16443
-~/kubeconfigs/acme-corp-prod-cluster-local.yaml  # Uses 127.0.0.1:16443
+~/k8s-backdoor/
+├── kubeconfigs/
+│   ├── <cluster-name>.yaml        # Uses public hostname
+│   └── <cluster-name>-local.yaml  # Uses 127.0.0.1
+└── bin/
+    └── kubectl-<cluster-name>     # Kubectl wrapper script
+```
+
+For example, if your cluster name is `acme-corp-prod-cluster`, the structure will be:
+```
+~/k8s-backdoor/
+├── kubeconfigs/
+│   ├── acme-corp-prod-cluster.yaml        # Uses bastion.example.com:16443
+│   └── acme-corp-prod-cluster-local.yaml  # Uses 127.0.0.1:16443
+└── bin/
+    └── kubectl-acme-corp-prod-cluster
 ```
 
 The `-local.yaml` version is useful when accessing from the bastion host itself, while the regular `.yaml` version is for accessing from machines that can reach the bastion.
 
-You can customize the directory with `--kubeconfig-dir` (e.g., `.kube/config.d`)
+You can customize the base directory with `--data-dir` (e.g., `--data-dir my-clusters` will use `~/my-clusters/`)
 
 ## Architecture
 
@@ -292,21 +301,21 @@ This ensures continuous access without manual intervention, while maintaining sh
 
 ### kubectl Wrapper
 
-The publish initContainer creates a convenient kubectl wrapper script at `~/bin/kubectl-<cluster-name>` on your bastion host.
+The publish initContainer creates a convenient kubectl wrapper script at `~/k8s-backdoor/bin/kubectl-<cluster-name>` on your bastion host.
 
 **Example usage:**
 ```bash
 # If your cluster is named "acme-corp-prod-cluster"
-kubectl-acme-corp-prod-cluster get nodes
-kubectl-acme-corp-prod-cluster get pods -A
+~/k8s-backdoor/bin/kubectl-acme-corp-prod-cluster get nodes
+~/k8s-backdoor/bin/kubectl-acme-corp-prod-cluster get pods -A
 
 # The wrapper automatically uses the public kubeconfig
-# Equivalent to: kubectl --kubeconfig kubeconfigs/acme-corp-prod-cluster.yaml get nodes
+# Equivalent to: kubectl --kubeconfig ~/k8s-backdoor/kubeconfigs/acme-corp-prod-cluster.yaml get nodes
 ```
 
-Add `~/bin` to your PATH to use these wrappers conveniently:
+Add `~/k8s-backdoor/bin` to your PATH to use these wrappers conveniently:
 ```bash
-echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/k8s-backdoor/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
