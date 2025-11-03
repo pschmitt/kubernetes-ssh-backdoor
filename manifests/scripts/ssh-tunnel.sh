@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 set -eu
 if [ -n "${DEBUG:-}" ]
 then
@@ -38,6 +38,7 @@ SSH_TUNNEL_OPTS="
 while true
 do
   echo "Starting SSH tunnel to ${BASTION_SSH_HOST}:${BASTION_SSH_PORT}..."
+  # shellcheck disable=SC2086
   ssh -N $SSH_TUNNEL_OPTS \
     -R "${REMOTE_LISTEN_ADDR}:${REMOTE_PORT}:kubernetes.default.svc:443" \
     "${BASTION_SSH_USER}@${BASTION_SSH_HOST}"

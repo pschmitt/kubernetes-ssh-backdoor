@@ -1,5 +1,7 @@
-#!/bin/sh
-set -eu
+#!/usr/bin/env bash
+
+set -euo pipefail
+
 if [ -n "${DEBUG:-}" ]
 then
   set -x
@@ -55,7 +57,7 @@ then
 fi
 
 # Create service account token with configurable duration
-TOKEN="$(kubectl -n "${NAMESPACE}" create token breakglass-admin --duration "${TOKEN_LIFETIME}")"
+TOKEN="$(kubectl -n "$NAMESPACE" create token breakglass-admin --duration "$TOKEN_LIFETIME")"
 CA_B64="$(base64 -w0 /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)"
 
 # Determine the public host for the kubeconfig
@@ -107,27 +109,15 @@ contexts:
 current-context: ${CLUSTER_NAME}-backdoor
 EOF
 
-# Resolve the bastion kubeconfig directory to absolute path if it starts with ~
-case "${BASTION_KUBECONFIG_DIR}" in
-  ~*)
-    # Expand ~ to the actual home directory on the remote host
-    BASTION_KUBECONFIG_DIR_ABS=$(ssh $SSH_OPTS "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
-        "echo ${BASTION_KUBECONFIG_DIR}")
-    ;;
-  *)
-    BASTION_KUBECONFIG_DIR_ABS="${BASTION_KUBECONFIG_DIR}"
-    ;;
-esac
+# Resolve remote paths to absolute paths in a single SSH call
+# shellcheck disable=SC2086
+IFS=' ' read -r REMOTE_HOME RESOLVED_KUBECONFIG_DIR RESOLVED_BIN_DIR < <(ssh $SSH_OPTS "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
+    'echo "$HOME" && mkdir -p '"'${BASTION_KUBECONFIG_DIR}'"' "$HOME/bin" && readlink -f '"'${BASTION_KUBECONFIG_DIR}'"' && readlink -f "$HOME/bin"')
 
-# Create directories on bastion and resolve the full path
-ssh $SSH_OPTS "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
-    "mkdir -p ${BASTION_KUBECONFIG_DIR_ABS} ~/bin"
-
-# Resolve the full path on the remote host
-RESOLVED_KUBECONFIG_DIR=$(ssh $SSH_OPTS "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
-    "readlink -f ${BASTION_KUBECONFIG_DIR_ABS}")
-
-echo "Resolved kubeconfig directory on bastion: ${RESOLVED_KUBECONFIG_DIR}"
+echo "Resolved remote paths:"
+echo "  Home: ${REMOTE_HOME}"
+echo "  Kubeconfig dir: ${RESOLVED_KUBECONFIG_DIR}"
+echo "  Bin dir: ${RESOLVED_BIN_DIR}"
 
 # Create kubectl wrapper script with resolved path
 KUBECTL_WRAPPER="${TMPDIR:-/tmp}/kubectl-${CLUSTER_NAME}"
@@ -139,20 +129,18 @@ WRAPPER_EOF
 chmod +x "$KUBECTL_WRAPPER"
 
 # Upload public kubeconfig (uses public hostname)
-scp $SCP_OPTS "$KUBECONFIG_PUBLIC_TMP" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${BASTION_KUBECONFIG_DIR_ABS}/.${CLUSTER_NAME}.yaml.tmp"
+# shellcheck disable=SC2086
+scp $SCP_OPTS "$KUBECONFIG_PUBLIC_TMP" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml"
 
 # Upload local kubeconfig (uses localhost)
-scp $SCP_OPTS "$KUBECONFIG_LOCAL_TMP" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${BASTION_KUBECONFIG_DIR_ABS}/.${CLUSTER_NAME}-local.yaml.tmp"
+# shellcheck disable=SC2086
+scp $SCP_OPTS "$KUBECONFIG_LOCAL_TMP" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml"
 
-# Upload kubectl wrapper
-scp $SCP_OPTS "$KUBECTL_WRAPPER" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${BASTION_KUBECONFIG_DIR_ABS}/.kubectl-${CLUSTER_NAME}.tmp"
-
-# Atomically move kubeconfigs into place
-ssh $SSH_OPTS "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
-    "mv '${BASTION_KUBECONFIG_DIR_ABS}/.${CLUSTER_NAME}.yaml.tmp' '${BASTION_KUBECONFIG_DIR_ABS}/${CLUSTER_NAME}.yaml' && \
-     mv '${BASTION_KUBECONFIG_DIR_ABS}/.${CLUSTER_NAME}-local.yaml.tmp' '${BASTION_KUBECONFIG_DIR_ABS}/${CLUSTER_NAME}-local.yaml' && \
-     mv '${BASTION_KUBECONFIG_DIR_ABS}/.kubectl-${CLUSTER_NAME}.tmp' ~/bin/'kubectl-${CLUSTER_NAME}' && \
-     chmod +x ~/bin/'kubectl-${CLUSTER_NAME}'"
+# Upload kubectl wrapper and make it executable
+# shellcheck disable=SC2086
+scp $SCP_OPTS "$KUBECTL_WRAPPER" "${BASTION_SSH_USER}@${BASTION_SSH_HOST}:${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}"
+# shellcheck disable=SC2086
+ssh $SSH_OPTS "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" 'chmod +x '"'${RESOLVED_BIN_DIR}/kubectl-${CLUSTER_NAME}'"
 
 echo "Kubeconfigs and kubectl wrapper published successfully"
 echo "  - ${RESOLVED_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml (uses ${KUBECONFIG_SERVER_HOST}:${REMOTE_PORT})"
@@ -170,6 +158,5 @@ kubectl create secret generic kubeconfig \
   --from-file=bin="$KUBECTL_WRAPPER" \
   --dry-run=client -o yaml | \
   kubectl apply -f -
-
 
 echo "Secret updated successfully"
