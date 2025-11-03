@@ -62,7 +62,7 @@ BASTION_SSH_HOST=""
 BASTION_SSH_PUBLIC_HOST=""
 BASTION_SSH_PORT="22"
 BASTION_SSH_USER="k8s-backdoor"
-BASTION_KUBECONFIG_DIR="kubeconfigs"
+BASTION_DATA_DIR="k8s-backdoor"
 CLUSTER_NAME=""
 REMOTE_PORT="16443"
 REMOTE_LISTEN_ADDR="127.0.0.1"
@@ -91,7 +91,7 @@ OPTIONS:
   -k, --host-key BASTION_SSH_HOST_KEY  SSH host public key (optional, disables strict checking if not provided)
   -n, --namespace NAMESPACE            Kubernetes namespace (default: backdoor)
   -u, --user BASTION_SSH_USER          SSH user on bastion (default: k8s-backdoor)
-  -d, --kubeconfig-dir DIR             Kubeconfig directory on bastion (default: kubeconfigs)
+  -d, --data-dir DIR                   Data directory on bastion (default: k8s-backdoor)
   -c, --cluster-name NAME              Cluster name in kubeconfig (default: auto-detect from cluster-info)
   -R, --remote-port PORT               Remote port for tunnel (default: computed from cluster name hash)
   -a, --addr ADDR                      Remote listen address on bastion (default: 127.0.0.1)
@@ -156,8 +156,8 @@ do
       BASTION_SSH_USER="$2"
       shift 2
       ;;
-    -d|--kubeconfig-dir)
-      BASTION_KUBECONFIG_DIR="$2"
+    -d|--data-dir)
+      BASTION_DATA_DIR="$2"
       shift 2
       ;;
     -c|--cluster-name)
@@ -314,7 +314,8 @@ echo_info "Bastion host          ${BOLD_YELLOW}${BASTION_SSH_USER}${RESET}@${BOL
 echo_info "SSH host key          ${BOLD_YELLOW}${BASTION_SSH_HOST_KEY}${RESET}"
 echo_info "SSH private key       ${BOLD_YELLOW}${SSH_KEY_PATH}${RESET} [${BOLD_YELLOW}${SSH_PUBLIC_KEY}${RESET}]"
 echo_info "Remote listen addr    ${BOLD_YELLOW}${REMOTE_LISTEN_ADDR}${RESET}:${BOLD_YELLOW}${REMOTE_PORT}${RESET}"
-echo_info "Kubeconfig paths      ${BOLD_YELLOW}${BASTION_KUBECONFIG_DIR}/${CLUSTER_NAME}.yaml${RESET} and ${BOLD_YELLOW}${BASTION_KUBECONFIG_DIR}/${CLUSTER_NAME}-local.yaml${RESET}"
+echo_info "Data directory        ${BOLD_YELLOW}${BASTION_DATA_DIR}${RESET}"
+echo_info "Kubeconfig paths      ${BOLD_YELLOW}${BASTION_DATA_DIR}/kubeconfigs/${CLUSTER_NAME}.yaml${RESET} and ${BOLD_YELLOW}${BASTION_DATA_DIR}/kubeconfigs/${CLUSTER_NAME}-local.yaml${RESET}"
 echo_info "Token lifetime        ${BOLD_YELLOW}${TOKEN_LIFETIME}${RESET} (renewal interval: ${BOLD_YELLOW}${TOKEN_RENEWAL_INTERVAL}${RESET})"
 
 # Create temporary kustomization
@@ -331,7 +332,7 @@ cp "$SSH_KEY_PATH" "$TEMP_DIR/id_ed25519"
 chmod 600 "$TEMP_DIR/id_ed25519"
 
 # Export variables for envsubst
-export BASTION_KUBECONFIG_DIR
+export BASTION_DATA_DIR
 export BASTION_SSH_HOST
 export BASTION_SSH_HOST_KEY
 export BASTION_SSH_PORT

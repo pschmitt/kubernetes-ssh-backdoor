@@ -125,16 +125,18 @@ EOF
 REMOTE_HOME=$(_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" 'echo "$HOME"')
 
 # Construct absolute paths
-RESOLVED_KUBECONFIG_DIR="${REMOTE_HOME}/${BASTION_KUBECONFIG_DIR}"
-RESOLVED_BIN_DIR="${REMOTE_HOME}/bin"
+RESOLVED_DATA_DIR="${REMOTE_HOME}/${BASTION_DATA_DIR}"
+RESOLVED_KUBECONFIG_DIR="${RESOLVED_DATA_DIR}/kubeconfigs"
+RESOLVED_BIN_DIR="${RESOLVED_DATA_DIR}/bin"
 
 echo "Resolved remote paths:"
 echo "  Home: ${REMOTE_HOME}"
+echo "  Data dir: ${RESOLVED_DATA_DIR}"
 echo "  Kubeconfig dir: ${RESOLVED_KUBECONFIG_DIR}"
 echo "  Bin dir: ${RESOLVED_BIN_DIR}"
 
 # Create directories on remote host
-_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" "mkdir -p '${RESOLVED_KUBECONFIG_DIR}' '${RESOLVED_BIN_DIR}'"
+_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" "mkdir -p '${RESOLVED_DATA_DIR}' '${RESOLVED_KUBECONFIG_DIR}' '${RESOLVED_BIN_DIR}'"
 
 # Create kubectl wrapper script with resolved path
 KUBECTL_WRAPPER="${TMPDIR:-/tmp}/kubectl-${CLUSTER_NAME}"
