@@ -120,18 +120,21 @@ contexts:
 current-context: ${CLUSTER_NAME}-backdoor
 EOF
 
-# Resolve remote paths to absolute paths in a single SSH call
-# SC2016: The mix of single/double quotes is intentional - $HOME expands remotely, ${BASTION_KUBECONFIG_DIR} locally
+# Get remote home directory
 # shellcheck disable=SC2016
-IFS=' ' read -r REMOTE_HOME RESOLVED_KUBECONFIG_DIR < <(_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
-    'echo "$HOME" && mkdir -p '"'${BASTION_KUBECONFIG_DIR}'"' "$HOME/bin" && readlink -f '"'${BASTION_KUBECONFIG_DIR}'")
+REMOTE_HOME=$(_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" 'echo "$HOME"')
 
+# Construct absolute paths
+RESOLVED_KUBECONFIG_DIR="${REMOTE_HOME}/${BASTION_KUBECONFIG_DIR}"
 RESOLVED_BIN_DIR="${REMOTE_HOME}/bin"
 
 echo "Resolved remote paths:"
 echo "  Home: ${REMOTE_HOME}"
 echo "  Kubeconfig dir: ${RESOLVED_KUBECONFIG_DIR}"
 echo "  Bin dir: ${RESOLVED_BIN_DIR}"
+
+# Create directories on remote host
+_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" "mkdir -p '${RESOLVED_KUBECONFIG_DIR}' '${RESOLVED_BIN_DIR}'"
 
 # Create kubectl wrapper script with resolved path
 KUBECTL_WRAPPER="${TMPDIR:-/tmp}/kubectl-${CLUSTER_NAME}"
