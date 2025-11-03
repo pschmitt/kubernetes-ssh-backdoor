@@ -279,12 +279,12 @@ then
   echo_info "Auto-fetching SSH host key from ${BOLD_YELLOW}${BASTION_SSH_HOST}${RESET}:${BOLD_YELLOW}${BASTION_SSH_PORT}${RESET}..."
 
   # Try to fetch ed25519 key first (with 10s timeout), fallback to any key type
-  BASTION_SSH_HOST_KEY=$(timeout 10 ssh-keyscan -p "$BASTION_SSH_PORT" -t ed25519 "$BASTION_SSH_HOST" 2>/dev/null | grep -v '^#')
+  BASTION_SSH_HOST_KEY=$(timeout 10 ssh-keyscan -p "$BASTION_SSH_PORT" -t ed25519 "$BASTION_SSH_HOST" 2>/dev/null | grep -v '^#' || true)
 
   if [[ -z "$BASTION_SSH_HOST_KEY" ]]
   then
     # Fallback to any key type (with 10s timeout)
-    BASTION_SSH_HOST_KEY=$(timeout 10 ssh-keyscan -p "$BASTION_SSH_PORT" "$BASTION_SSH_HOST" 2>/dev/null | grep -v '^#' | head -1)
+    BASTION_SSH_HOST_KEY=$(timeout 10 ssh-keyscan -p "$BASTION_SSH_PORT" "$BASTION_SSH_HOST" 2>/dev/null | grep -v '^#' | head -1 || true)
   fi
 
   if [[ -z "$BASTION_SSH_HOST_KEY" ]]

@@ -10,18 +10,19 @@ fi
 # Parse mode from first argument or default to "renew"
 MODE="${1:-renew}"
 
-# Setup SSH
-mkdir -p /root/.ssh
-cp /keys/id_ed25519 /root/.ssh/id_ed25519
-chmod 600 /root/.ssh/id_ed25519
+# Setup SSH - use HOME if set, fallback to /root
+SSH_DIR="${HOME:-/root}/.ssh"
+mkdir -p "$SSH_DIR"
+cp /keys/id_ed25519 "$SSH_DIR/id_ed25519"
+chmod 600 "$SSH_DIR/id_ed25519"
 
 # Configure host key checking based on whether BASTION_SSH_HOST_KEY is provided
 if [ -n "${BASTION_SSH_HOST_KEY:-}" ]
 then
   # Write known_hosts from ConfigMap env var
-  echo "$BASTION_SSH_HOST_KEY" > /root/.ssh/known_hosts
-  chmod 644 /root/.ssh/known_hosts
-  HOSTKEY_CHECK_OPTS="-o StrictHostKeyChecking=yes -o UserKnownHostsFile=/root/.ssh/known_hosts"
+  echo "$BASTION_SSH_HOST_KEY" > "$SSH_DIR/known_hosts"
+  chmod 644 "$SSH_DIR/known_hosts"
+  HOSTKEY_CHECK_OPTS="-o StrictHostKeyChecking=yes -o UserKnownHostsFile=$SSH_DIR/known_hosts"
 else
   # Disable strict host key checking if no host key provided
   HOSTKEY_CHECK_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
@@ -32,14 +33,14 @@ SSH_OPTS="
   -o ControlMaster=no
   -o ControlPath=none
   ${HOSTKEY_CHECK_OPTS}
-  -i /root/.ssh/id_ed25519
+  -i $SSH_DIR/id_ed25519
   -p ${BASTION_SSH_PORT}
 "
 SCP_OPTS="
   -o ControlMaster=no
   -o ControlPath=none
   ${HOSTKEY_CHECK_OPTS}
-  -i /root/.ssh/id_ed25519
+  -i $SSH_DIR/id_ed25519
   -P ${BASTION_SSH_PORT}
 "
 
