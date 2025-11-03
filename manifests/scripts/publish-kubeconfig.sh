@@ -123,8 +123,10 @@ EOF
 # Resolve remote paths to absolute paths in a single SSH call
 # SC2016: The mix of single/double quotes is intentional - $HOME expands remotely, ${BASTION_KUBECONFIG_DIR} locally
 # shellcheck disable=SC2016
-IFS=' ' read -r REMOTE_HOME RESOLVED_KUBECONFIG_DIR RESOLVED_BIN_DIR < <(_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
-    'echo "$HOME" && mkdir -p '"'${BASTION_KUBECONFIG_DIR}'"' "$HOME/bin" && readlink -f '"'${BASTION_KUBECONFIG_DIR}'"' && readlink -f "$HOME/bin"')
+IFS=' ' read -r REMOTE_HOME RESOLVED_KUBECONFIG_DIR < <(_ssh "${BASTION_SSH_USER}@${BASTION_SSH_HOST}" \
+    'echo "$HOME" && mkdir -p '"'${BASTION_KUBECONFIG_DIR}'"' "$HOME/bin" && readlink -f '"'${BASTION_KUBECONFIG_DIR}'")
+
+RESOLVED_BIN_DIR="${REMOTE_HOME}/bin"
 
 echo "Resolved remote paths:"
 echo "  Home: ${REMOTE_HOME}"
